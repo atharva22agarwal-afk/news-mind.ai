@@ -32,6 +32,15 @@ const Summary = sequelize.define('Summary', {
         type: DataTypes.STRING,
         allowNull: true
     },
+    // Structured AI output fields
+    headline: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    tldr: {
+        type: DataTypes.TEXT, // One-line summary
+        allowNull: true
+    },
     summary: {
         type: DataTypes.TEXT,
         allowNull: false
@@ -39,6 +48,35 @@ const Summary = sequelize.define('Summary', {
     keyPoints: {
         type: DataTypes.JSON, // Store as JSON array
         defaultValue: []
+    },
+    sentiment: {
+        type: DataTypes.ENUM('positive', 'negative', 'neutral', 'mixed'),
+        allowNull: true
+    },
+    biasWarning: {
+        type: DataTypes.TEXT, // Flag potential bias
+        allowNull: true
+    },
+    biasScore: {
+        type: DataTypes.INTEGER, // -5 (left) to 5 (right)
+        validate: { min: -5, max: 5 },
+        allowNull: true
+    },
+    credibilityFlags: {
+        type: DataTypes.JSON, // Array of red flags
+        defaultValue: []
+    },
+    readTime: {
+        type: DataTypes.INTEGER, // Estimated minutes
+        defaultValue: 0
+    },
+    category: {
+        type: DataTypes.STRING, // auto-classified topic
+        allowNull: true
+    },
+    relatedDebateId: {
+        type: DataTypes.INTEGER, // Link to debate
+        allowNull: true
     },
     depth: {
         type: DataTypes.ENUM('brief', 'medium', 'detailed'),
@@ -54,11 +92,11 @@ const Summary = sequelize.define('Summary', {
     },
     model: {
         type: DataTypes.STRING,
-        defaultValue: 'extractive-summarization-v1'
+        defaultValue: 'llama-3.3-70b-versatile'
     },
     provider: {
         type: DataTypes.STRING,
-        defaultValue: 'Built-in Algorithm'
+        defaultValue: 'Groq AI'
     },
     audioUrl: {
         type: DataTypes.STRING,
@@ -67,6 +105,14 @@ const Summary = sequelize.define('Summary', {
     pageCount: {
         type: DataTypes.INTEGER,
         allowNull: true
+    },
+    isPublic: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: true
+    },
+    viewCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     }
 }, {
     tableName: 'summaries',

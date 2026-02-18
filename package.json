@@ -29,6 +29,7 @@
     "openai": "^6.16.0",
     "pdf-parse": "^1.1.1",
     "sequelize": "^6.37.7",
+    "socket.io": "^4.7.4",
     "sqlite3": "^5.1.7",
     "uuid": "^13.0.0"
   },

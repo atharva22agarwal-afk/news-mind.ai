@@ -24,7 +24,8 @@ router.post('/create', async (req, res) => {
       summaryId: summaryId || null,
       userId,
       votesA: 0,
-      votesB: 0
+      votesB: 0,
+      voters: []
     });
     
     console.log(`✅ Poll created: ${poll.id}`);
@@ -45,11 +46,11 @@ router.post('/create', async (req, res) => {
 
 /**
  * POST /api/polls/vote
- * Vote on a poll
+ * Vote on a poll with AI insight generation
  */
 router.post('/vote', async (req, res) => {
   try {
-    const { pollId, option } = req.body;
+    const { pollId, option, userId = 'guest' } = req.body;
     
     if (!pollId || !option) {
       return res.status(400).json({
@@ -67,6 +68,16 @@ router.post('/vote', async (req, res) => {
       });
     }
     
+    // Check if user already voted
+    const voters = poll.voters || [];
+    if (voters.includes(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Already voted'
+      });
+    }
+    
+    // Record vote
     if (option === 'A') {
       poll.votesA += 1;
     } else if (option === 'B') {
@@ -78,16 +89,28 @@ router.post('/vote', async (req, res) => {
       });
     }
     
+    // Add voter to list
+    poll.voters = [...voters, userId];
     await poll.save();
     
-    console.log(`✅ Vote recorded for poll ${pollId}: ${option}`);
+    const totalVotes = poll.votesA + poll.votesB;
+    
+    // Generate AI insight when poll hits milestones (10, 50, 100, 500 votes)
+    const milestones = [10, 50, 100, 500];
+    if (milestones.includes(totalVotes)) {
+      // Run async - don't block the response
+      generatePollInsight(poll).catch(console.error);
+    }
     
     res.json({
       success: true,
       data: {
         votesA: poll.votesA,
         votesB: poll.votesB,
-        total: poll.votesA + poll.votesB
+        total: totalVotes,
+        optionAPercentage: ((poll.votesA / totalVotes) * 100).toFixed(1),
+        optionBPercentage: ((poll.votesB / totalVotes) * 100).toFixed(1),
+        aiInsight: poll.aiInsight
       }
     });
     
@@ -99,6 +122,30 @@ router.post('/vote', async (req, res) => {
     });
   }
 });
+
+/**
+ * Generate AI insight for poll at milestones
+ */
+async function generatePollInsight(poll) {
+  try {
+    const { researchChat } = require('../services/aiService');
+    
+    const results = `"${poll.optionA}": ${poll.votesA} votes, "${poll.optionB}": ${poll.votesB} votes`;
+    const total = poll.votesA + poll.votesB;
+    
+    const prompt = `Poll: "${poll.question}"\nResults: ${results}\nTotal votes: ${total}\n\nWhat does this voting pattern suggest about public opinion? Keep it under 3 sentences.`;
+    
+    const response = await researchChat(prompt, []);
+    
+    poll.aiInsight = response.reply;
+    poll.aiInsightGeneratedAt = new Date();
+    await poll.save();
+    
+    console.log(`✅ AI insight generated for poll ${poll.id}`);
+  } catch (error) {
+    console.error('AI insight error:', error.message);
+  }
+}
 
 /**
  * GET /api/polls/:id

@@ -31,9 +31,26 @@ const Poll = sequelize.define('Poll', {
         type: DataTypes.INTEGER,
         defaultValue: 0
     },
+    voters: {
+        type: DataTypes.JSON, // Array of user IDs who voted
+        defaultValue: []
+    },
     userId: {
         type: DataTypes.STRING,
         defaultValue: 'guest'
+    },
+    // AI Insight fields
+    aiInsight: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    aiInsightGeneratedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    status: {
+        type: DataTypes.ENUM('active', 'closed'),
+        defaultValue: 'active'
     }
 }, {
     tableName: 'polls',

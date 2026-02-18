@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const Summary = require('../models/Summary');
+const { deepSummarize } = require('../services/aiService');
 const aiService = require('../services/aiService');
 const { searchGoogle, scrapeWebPage } = require('../services/webSearch');
 const { 
@@ -295,6 +296,106 @@ router.get('/:id', async (req, res) => {
       success: false, 
       message: 'Failed to retrieve summary' 
     });
+  }
+});
+
+/**
+ * POST /api/summary/deep
+ * Deep AI analysis with structured output
+ */
+router.post('/deep', async (req, res) => {
+  try {
+    const { url, rawText, userId = 'guest' } = req.body;
+
+    if (!url && !rawText) {
+      return res.status(400).json({ error: 'Provide a URL or text content' });
+    }
+
+    let content = rawText;
+    let sourceUrl = url;
+
+    // Extract content from URL if provided
+    if (url) {
+      try {
+        const extracted = await extractFromURL(url);
+        content = extracted.content;
+      } catch (e) {
+        return res.status(422).json({ error: 'Could not extract content from this URL. Try pasting the text directly.' });
+      }
+    }
+
+    // Check if this URL was already summarized recently (24hr cache)
+    if (sourceUrl) {
+      const recent = await Summary.findOne({
+        where: {
+          sourceUrl,
+          createdAt: {
+            [require('sequelize').Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          }
+        }
+      });
+
+      if (recent) {
+        return res.json({ success: true, summary: recent, fromCache: true });
+      }
+    }
+
+    // Deep AI analysis
+    const analysis = await deepSummarize(content, sourceUrl);
+
+    // Save to DB with full structured data
+    const summary = await Summary.create({
+      userId,
+      sourceUrl,
+      title: analysis.headline,
+      headline: analysis.headline,
+      tldr: analysis.tldr,
+      originalContent: content,
+      summary: analysis.tldr,
+      keyPoints: analysis.keyFacts || [],
+      sentiment: analysis.sentiment,
+      biasWarning: analysis.missingContext,
+      biasScore: analysis.biasScore,
+      credibilityFlags: analysis.credibilityFlags || [],
+      readTime: Math.ceil(content.split(/\s+/).length / 200),
+      source: url ? 'url' : 'text'
+    });
+
+    res.json({ success: true, summary });
+
+  } catch (err) {
+    console.error('Deep summary error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/summary/trending
+ * Most viewed summaries with bias flags
+ */
+router.get('/trending', async (req, res) => {
+  try {
+    const summaries = await Summary.findAll({
+      where: { isPublic: true },
+      order: [['viewCount', 'DESC'], ['createdAt', 'DESC']],
+      limit: 20
+    });
+
+    const formatted = summaries.map(s => ({
+      id: s.id,
+      headline: s.headline || s.title,
+      tldr: s.tldr,
+      sentiment: s.sentiment,
+      biasWarning: s.biasWarning,
+      sourceUrl: s.sourceUrl,
+      createdAt: s.createdAt,
+      viewCount: s.viewCount
+    }));
+
+    res.json({ success: true, summaries: formatted });
+  } catch (err) {
+    console.error('Trending error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

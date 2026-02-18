@@ -3,7 +3,12 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Debate = require('../models/Debate');
 const Summary = require('../models/Summary');
-const aiService = require('../services/aiService');
+const { Argument } = require('../models/Debate');
+const { judgeArgument, moderateDebate } = require('../services/aiService');
+let io = null;
+
+// Set io from server.js
+router.setIO = (socketIO) => { io = socketIO; };
 
 /**
  * POST /api/debate/create
@@ -71,6 +76,125 @@ router.post('/create', async (req, res) => {
     });
   }
 });
+
+/**
+ * POST /api/debate/:id/argue
+ * Submit an argument with AI analysis
+ */
+router.post('/:id/argue', async (req, res) => {
+  try {
+    const { content, side, userId = 'guest', userName = 'Anonymous' } = req.body;
+    const debateId = req.params.id;
+
+    const debate = await Debate.findByPk(debateId);
+
+    if (!debate) {
+      return res.status(404).json({ error: 'Debate not found' });
+    }
+
+    if (debate.status !== 'active') {
+      return res.status(400).json({ error: 'Debate is closed' });
+    }
+
+    if (!['for', 'against'].includes(side)) {
+      return res.status(400).json({ error: 'Side must be for or against' });
+    }
+
+    if (!content || content.length < 20) {
+      return res.status(400).json({ error: 'Argument too short. Make your case!' });
+    }
+
+    // Save argument immediately so user gets fast response
+    const newArgument = await Argument.create({
+      debateId: debate.id,
+      userId: userId,
+      content,
+      side,
+      aiIsAnalyzed: false
+    });
+
+    // Send response immediately - don't make user wait for AI
+    res.json({
+      success: true,
+      argument: newArgument,
+      message: 'Argument posted! AI analysis incoming...'
+    });
+
+    // Run AI analysis in background
+    analyzeArgumentAsync(debate, newArgument, content, side);
+
+  } catch (err) {
+    console.error('Argue error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Background AI analysis - runs after response is sent
+ */
+async function analyzeArgumentAsync(debate, argument, content, side) {
+  try {
+    // Judge the specific argument
+    const analysis = await judgeArgument(content, debate.topic, side);
+
+    // Update the argument in DB
+    await Argument.update(
+      {
+        aiStrengthScore: analysis.strengthScore,
+        aiLogicalFallacies: analysis.strongPoints || [],
+        aiCounterArguments: analysis.weakPoints || [],
+        aiVerdict: analysis.verdict,
+        evidenceQuality: analysis.evidenceQuality,
+        emotionPercent: analysis.emotionPercent,
+        logicPercent: analysis.logicPercent,
+        aiIsAnalyzed: true
+      },
+      { where: { id: argument.id } }
+    );
+
+    // Emit to all users watching this debate (real-time update)
+    if (io) {
+      io.to(`debate:${debate.id}`).emit('argument-analyzed', {
+        argumentId: argument.id,
+        analysis,
+        debateId: debate.id
+      });
+    }
+
+    // Every 5 arguments, update the full debate moderation
+    const argCount = await Argument.count({ where: { debateId: debate.id } });
+    if (argCount % 5 === 0) {
+      const args = await Argument.findAll({ where: { debateId: debate.id } });
+      
+      const messagesForModeration = args.map(a => ({
+        sender: a.side,
+        content: a.content
+      }));
+
+      const moderation = await moderateDebate(debate.topic, messagesForModeration);
+
+      await Debate.update(
+        {
+          aiForStrength: moderation.forStrength || 50,
+          aiAgainstStrength: moderation.againstStrength || 50,
+          aiDominantThemes: moderation.dominantThemes || [],
+          aiLastUpdated: new Date()
+        },
+        { where: { id: debate.id } }
+      );
+
+      if (io) {
+        io.to(`debate:${debate.id}`).emit('debate-moderated', {
+          debateId: debate.id,
+          moderation
+        });
+      }
+    }
+
+  } catch (err) {
+    console.error('Background AI analysis failed:', err.message);
+  }
+}
 
 /**
  * POST /api/debate/join
