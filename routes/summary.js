@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const NodeCache = require('node-cache');
 const Summary = require('../models/Summary');
 const { deepSummarize } = require('../services/aiService');
 const aiService = require('../services/aiService');
@@ -13,6 +14,9 @@ const {
   extractFromText,
   isValidURL 
 } = require('../services/contentExtractor');
+
+// Initialize cache with 1 hour TTL (3600 seconds)
+const cache = new NodeCache({ stdTTL: 3600 });
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
@@ -54,6 +58,20 @@ router.post('/url', async (req, res) => {
       });
     }
     
+    // Create cache key based on URL and depth
+    const cacheKey = `summary_${url}_${depth}`;
+    
+    // 1. CHECK CACHE (Scalability Optimization)
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      console.log("⚡ Serving from Cache (No AI cost)");
+      return res.json({ 
+        success: true, 
+        data: cachedData,
+        cached: true
+      });
+    }
+    
     console.log(`🔍 Processing URL: ${url}`);
     
     // Extract content from URL
@@ -64,6 +82,22 @@ router.post('/url', async (req, res) => {
     
     // Generate title if not available
     const title = extracted.title || result.title || aiService.generateTitle(extracted.content);
+    
+    // Prepare response data
+    const responseData = {
+      title,
+      summary: result.summary,
+      keyPoints: result.keyPoints,
+      wordCount: result.wordCount,
+      readingTime: result.readingTime,
+      depth,
+      source: 'url',
+      sourceUrl: url
+    };
+    
+    // 2. SAVE TO CACHE
+    cache.set(cacheKey, responseData);
+    console.log(`💾 Cached summary for: ${url}`);
     
     // Save to database
     const summaryDoc = await Summary.create({
@@ -85,14 +119,7 @@ router.post('/url', async (req, res) => {
       success: true,
       data: {
         id: summaryDoc.id,
-        title,
-        summary: result.summary,
-        keyPoints: result.keyPoints,
-        wordCount: result.wordCount,
-        readingTime: result.readingTime,
-        depth,
-        source: 'url',
-        sourceUrl: url,
+        ...responseData,
         createdAt: summaryDoc.createdAt
       }
     });

@@ -26,6 +26,7 @@
     "mongodb": "^7.0.0",
     "mongoose": "^9.1.2",
     "multer": "^2.0.2",
+    "node-cache": "^5.1.2",
     "openai": "^6.16.0",
     "pdf-parse": "^1.1.1",
     "sequelize": "^6.37.7",
