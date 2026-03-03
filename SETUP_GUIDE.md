@@ -15,10 +15,10 @@ Before starting, ensure you have the following installed:
    - Download from: https://nodejs.org/
    - Verify installation: `node --version`
 
-2. **MongoDB Database**
-   - The project uses MongoDB Atlas (cloud) by default
-   - Connection string is already configured in `.env`
-   - Alternatively, you can use a local MongoDB instance
+2. **SQLite Database**
+   - The project uses SQLite (local file) by default.
+   - No external database installation is required.
+   - Database file: `newsmind.sqlite`
 
 ## Installation Steps
 
@@ -72,11 +72,11 @@ This will install all required packages including:
 The `.env` file is already configured with:
 ```
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/newsmind
 NODE_ENV=development
+GEMINI_API_KEY=your_key_here
 ```
 
-**Note:** The MongoDB connection uses a local database. Make sure MongoDB is running on your system, or use MongoDB Atlas for cloud storage.
+**Note:** The project is configured to use SQLite. The database will be automatically created as `newsmind.sqlite` in the project root upon first run.
 
 ### Step 4: Start the Server
 
@@ -95,8 +95,8 @@ You should see output like:
 🚀 Server running on http://localhost:5000
 📱 Access from other devices: http://YOUR_IP:5000
 📚 API Documentation: http://localhost:5000/
-✅ MongoDB Connected Successfully
-📊 Database: newsmind-db
+✅ SQLite Database Connected Successfully
+📊 Database: newsmind.sqlite
 ```
 
 ### Step 5: Access the Application
@@ -173,13 +173,6 @@ news/
 ### Issue: "npm is not recognized"
 **Solution:** Node.js is not installed or not in PATH. Reinstall Node.js and restart your terminal.
 
-### Issue: "Cannot connect to MongoDB"
-**Solution:** 
-- Check if MongoDB is running locally (for local MongoDB)
-- Verify the MONGODB_URI in `.env`
-- If using MongoDB Atlas, check internet connection
-- Check if IP is whitelisted in MongoDB Atlas
-
 ### Issue: "Failed to fetch" Error
 **This is the most common error when running the frontend and backend on different ports.**
 
@@ -195,9 +188,9 @@ news/
    ```
    You should see: `🚀 Server running on http://localhost:5000`
 
-2. **Make sure MongoDB is running:**
-   - For local MongoDB: Start MongoDB service
-   - You should see: `✅ MongoDB Connected Successfully`
+2. **Make sure GEMINI_API_KEY is set:**
+   - Check your `.env` file.
+   - You should see: `✅ SQLite Database Connected Successfully`
 
 3. **Verify the frontend is connecting to the correct port:**
    - The frontend (VS Code Live Server) typically runs on port 5500 or 5501

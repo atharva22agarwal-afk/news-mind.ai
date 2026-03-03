@@ -92,7 +92,7 @@ app.use('/api/factcheck', require('./routes/factcheck'));
 app.post('/api/tools/compare', async (req, res) => {
   try {
     const { url1, url2 } = req.body;
-    
+
     if (!url1 || !url2) {
       return res.status(400).json({ error: 'Please provide both URL A and URL B.' });
     }
@@ -119,7 +119,7 @@ app.post('/api/tools/compare', async (req, res) => {
 
 // Health Check
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'success',
     message: 'News AI Summarizer API is running!',
     version: '1.0.0',
@@ -135,18 +135,18 @@ app.get('/', (req, res) => {
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     status: 'error',
-    message: 'Endpoint not found' 
+    message: 'Endpoint not found'
   });
 });
 
 // Error Handler
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     status: 'error',
-    message: err.message || 'Internal server error' 
+    message: err.message || 'Internal server error'
   });
 });
 
@@ -156,7 +156,7 @@ const PORT = process.env.PORT || 5000;
 sequelize.sync({ force: false }).then(() => {
   console.log('✅ SQLite Database Connected & Synced');
   console.log('📊 Database file: newsmind.sqlite');
-  
+
   httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📱 Access from other devices: http://YOUR_IP:${PORT}`);

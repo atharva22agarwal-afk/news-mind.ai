@@ -7,12 +7,12 @@ const Summary = require('../models/Summary');
 const { deepSummarize } = require('../services/aiService');
 const aiService = require('../services/aiService');
 const { searchGoogle, scrapeWebPage } = require('../services/webSearch');
-const { 
-  extractFromURL, 
-  extractFromPDF, 
+const {
+  extractFromURL,
+  extractFromPDF,
   extractFromDocx,
   extractFromText,
-  isValidURL 
+  isValidURL
 } = require('../services/contentExtractor');
 
 // Initialize cache with 1 hour TTL (3600 seconds)
@@ -27,7 +27,7 @@ const upload = multer({
     const allowedTypes = /pdf|doc|docx|txt/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (extname || mimetype) {
       return cb(null, true);
     } else {
@@ -43,46 +43,46 @@ const upload = multer({
 router.post('/url', async (req, res) => {
   try {
     const { url, depth = 'medium', userId = 'guest' } = req.body;
-    
+
     if (!url) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'URL is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'URL is required'
       });
     }
-    
+
     if (!isValidURL(url)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid URL format' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid URL format'
       });
     }
-    
+
     // Create cache key based on URL and depth
     const cacheKey = `summary_${url}_${depth}`;
-    
+
     // 1. CHECK CACHE (Scalability Optimization)
     const cachedData = cache.get(cacheKey);
     if (cachedData) {
       console.log("⚡ Serving from Cache (No AI cost)");
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         data: cachedData,
         cached: true
       });
     }
-    
+
     console.log(`🔍 Processing URL: ${url}`);
-    
+
     // Extract content from URL
     const extracted = await extractFromURL(url);
-    
+
     // Generate summary - returns an object with summary, keyPoints, etc.
     const result = await aiService.summarizeText(extracted.content, depth);
-    
+
     // Generate title if not available
     const title = extracted.title || result.title || aiService.generateTitle(extracted.content);
-    
+
     // Prepare response data
     const responseData = {
       title,
@@ -94,11 +94,11 @@ router.post('/url', async (req, res) => {
       source: 'url',
       sourceUrl: url
     };
-    
+
     // 2. SAVE TO CACHE
     cache.set(cacheKey, responseData);
     console.log(`💾 Cached summary for: ${url}`);
-    
+
     // Save to database
     const summaryDoc = await Summary.create({
       userId,
@@ -112,9 +112,9 @@ router.post('/url', async (req, res) => {
       wordCount: result.wordCount,
       readingTime: result.readingTime
     });
-    
+
     console.log(`✅ Summary created: ${summaryDoc.id}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -123,12 +123,12 @@ router.post('/url', async (req, res) => {
         createdAt: summaryDoc.createdAt
       }
     });
-    
+
   } catch (error) {
     console.error('URL summary error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to process URL' 
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to process URL'
     });
   }
 });
@@ -140,19 +140,19 @@ router.post('/url', async (req, res) => {
 router.post('/file', upload.single('file'), async (req, res) => {
   try {
     const { depth = 'medium', userId = 'guest' } = req.body;
-    
+
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'No file uploaded' 
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
       });
     }
-    
+
     console.log(`📝 Processing file: ${req.file.originalname}`);
-    
+
     let extracted;
     const ext = path.extname(req.file.originalname).toLowerCase();
-    
+
     // Extract based on file type
     if (ext === '.pdf') {
       extracted = await extractFromPDF(req.file.buffer, req.file.originalname);
@@ -161,15 +161,15 @@ router.post('/file', upload.single('file'), async (req, res) => {
     } else if (ext === '.txt') {
       extracted = extractFromText(req.file.buffer, req.file.originalname);
     } else {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Unsupported file type' 
+      return res.status(400).json({
+        success: false,
+        message: 'Unsupported file type'
       });
     }
-    
+
     // Generate summary - returns an object
     const result = await aiService.summarizeText(extracted.content, depth);
-    
+
     // Save to database
     const summaryDoc = await Summary.create({
       userId,
@@ -183,9 +183,9 @@ router.post('/file', upload.single('file'), async (req, res) => {
       wordCount: result.wordCount,
       readingTime: result.readingTime
     });
-    
+
     console.log(`✅ Summary created: ${summaryDoc.id}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -201,12 +201,12 @@ router.post('/file', upload.single('file'), async (req, res) => {
         createdAt: summaryDoc.createdAt
       }
     });
-    
+
   } catch (error) {
     console.error('File summary error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to process file' 
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to process file'
     });
   }
 });
@@ -218,26 +218,26 @@ router.post('/file', upload.single('file'), async (req, res) => {
 router.post('/text', async (req, res) => {
   try {
     const { text, depth = 'medium', userId = 'guest', title } = req.body;
-    
+
     if (!text || text.trim().length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Text is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Text is required'
       });
     }
-    
+
     console.log(`📝 Processing text input (${text.length} chars)`);
-    
+
     // SMART SEARCH: If text is short (< 50 chars) and not a URL, treat as SEARCH TOPIC
     let finalText = text;
     let sourceLink = null;
     let sourceType = 'text';
-    
+
     if (text.length < 50 && !text.includes('http') && !text.includes('www.')) {
       console.log(`🔍 Detected short topic input. Searching web for: ${text}`);
-      
+
       const searchData = await searchGoogle(text);
-      
+
       if (searchData && searchData.results) {
         // Combine search results into text
         finalText = `Latest news on "${text}":\n\n`;
@@ -249,13 +249,13 @@ router.post('/text', async (req, res) => {
         console.log(`✅ Found ${searchData.results.length} search results`);
       }
     }
-    
+
     // Generate summary - returns an object
     const result = await aiService.summarizeText(finalText, depth);
-    
+
     // Generate title if not provided
     const finalTitle = title || result.title || aiService.generateTitle(text);
-    
+
     // Save to database
     const summaryDoc = await Summary.create({
       userId,
@@ -269,9 +269,9 @@ router.post('/text', async (req, res) => {
       wordCount: result.wordCount,
       readingTime: result.readingTime
     });
-    
+
     console.log(`✅ Summary created: ${summaryDoc.id}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -287,12 +287,12 @@ router.post('/text', async (req, res) => {
         createdAt: summaryDoc.createdAt
       }
     });
-    
+
   } catch (error) {
     console.error('Text summary error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to process text' 
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to process text'
     });
   }
 });
@@ -304,24 +304,24 @@ router.post('/text', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const summary = await Summary.findByPk(req.params.id);
-    
+
     if (!summary) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Summary not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Summary not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: summary
     });
-    
+
   } catch (error) {
     console.error('Get summary error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to retrieve summary' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve summary'
     });
   }
 });
@@ -384,6 +384,7 @@ router.post('/deep', async (req, res) => {
       biasWarning: analysis.missingContext,
       biasScore: analysis.biasScore,
       credibilityFlags: analysis.credibilityFlags || [],
+      semanticGravity: analysis.semanticGravity || 0,
       readTime: Math.ceil(content.split(/\s+/).length / 200),
       source: url ? 'url' : 'text'
     });

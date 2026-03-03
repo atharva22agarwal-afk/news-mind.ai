@@ -113,6 +113,10 @@ const Summary = sequelize.define('Summary', {
     viewCount: {
         type: DataTypes.INTEGER,
         defaultValue: 0
+    },
+    semanticGravity: {
+        type: DataTypes.FLOAT,
+        allowNull: true
     }
 }, {
     tableName: 'summaries',

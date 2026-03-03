@@ -3,7 +3,11 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Initialize Gemini with API key from environment
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.AIzaSyAPA-jqtHTdMlvSeoghIZlzN-nE73-HYg0);
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error('GEMINI_API_KEY is not defined in environment variables.');
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 // ── CORE CALLER ──────────────────────────────────────────────
@@ -99,6 +103,20 @@ confidence must be a number 0-100.
 ONLY return the JSON object. Nothing else.`
 };
 
+// ── SEMANTIC GRAVITY ENGINE ──────────────────────────────────
+/**
+ * Calculates the Semantic Gravity (G) score.
+ * Formula: G = (unique_claims / word_count) * 100
+ */
+function calculateSemanticGravity(text, keyFacts = []) {
+  if (!text) return 0;
+  const wordCount = text.trim().split(/\s+/).length;
+  if (wordCount === 0) return 0;
+  const uniqueClaims = keyFacts.length > 0 ? keyFacts.length : 1; // Fallback to 1 if no facts
+  const gravity = (uniqueClaims / wordCount) * 100;
+  return parseFloat(gravity.toFixed(2));
+}
+
 // ── EXPORTED FUNCTIONS ───────────────────────────────────────
 
 async function deepSummarize(content, sourceUrl = '') {
@@ -113,7 +131,13 @@ async function deepSummarize(content, sourceUrl = '') {
 
   const result = parseAIResponse(text);
   if (!result.success) throw new Error('Summary failed: ' + result.error);
-  return result.data;
+
+  // Calculate Semantic Gravity
+  const gravityScore = calculateSemanticGravity(content, result.data.keyFacts);
+  return {
+    ...result.data,
+    semanticGravity: gravityScore
+  };
 }
 
 async function judgeArgument(argument, topic, side) {
@@ -142,7 +166,8 @@ async function researchChat(userMessage, conversationHistory = []) {
   const messages = [
     {
       role: 'user',
-      parts: [{ text: `You are a research assistant helping users understand news and debates.
+      parts: [{
+        text: `You are a research assistant helping users understand news and debates.
 Always distinguish facts from opinions. Flag uncertainty. Be concise and clear.` }]
     },
     ...conversationHistory,
@@ -186,10 +211,10 @@ Analyze the arguments and provide:
 Return ONLY JSON with these fields.`;
 
   const argsText = arguments_.map(a => `${a.sender || a.side}: ${a.content}`).join('\n\n');
-  
+
   const text = await callAI(prompt, argsText, 500);
   const result = parseAIResponse(text);
-  
+
   if (!result.success) {
     return {
       forStrength: 50,
@@ -198,7 +223,7 @@ Return ONLY JSON with these fields.`;
       observation: 'Discussion in progress'
     };
   }
-  
+
   return result.data;
 }
 
@@ -208,7 +233,7 @@ async function summarizeText(text, depth = 'medium') {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const sentenceCount = { brief: 2, medium: 4, detailed: 6 };
   const selected = sentences.slice(0, sentenceCount[depth] || 4);
-  
+
   return {
     title: text.substring(0, 50) + '...',
     summary: selected.join(' '),
@@ -231,20 +256,41 @@ async function moderateDebateLegacy(topic, messages) {
   return response.reply;
 }
 
-// Legacy article comparison
+// ── ARTICLE COMPARISON ───────────────────────────────────────
 async function compareArticles(url1, url2) {
-  return `# Article Comparison
+  const { urlScraper } = require('./urlScraper');
 
-Please configure a Groq API key for AI-powered comparison, or use the text input to compare articles manually.
+  try {
+    const content1 = await urlScraper(url1);
+    const content2 = await urlScraper(url2);
 
-*Note: Gemini comparison coming soon.*`;
+    const prompt = `You are a forensic news analyst. Compare these two articles and identify:
+1. Mutual facts agreed upon by both.
+2. Contradictions or differing perspectives.
+3. Unique information present in only one source.
+4. Overall divergence score (0-100%).
+
+Respond in clear Markdown format with headers.
+
+Article A (${url1}):
+${content1.slice(0, 4000)}
+
+Article B (${url2}):
+${content2.slice(0, 4000)}`;
+
+    const response = await callAI("You are a comparative analyst.", prompt, 2048);
+    return response;
+  } catch (error) {
+    console.error('Comparison Error:', error.message);
+    return `### Comparison Failed\n\nCould not analyze sources: ${error.message}`;
+  }
 }
 
-module.exports = { 
-  deepSummarize, 
-  judgeArgument, 
-  factCheck, 
-  researchChat, 
+module.exports = {
+  deepSummarize,
+  judgeArgument,
+  factCheck,
+  researchChat,
   moderateDebate,
   summarizeText,
   generateDebateResponse,
