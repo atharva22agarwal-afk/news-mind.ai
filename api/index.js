@@ -91,19 +91,27 @@ try {
   });
 
   // Serve static files from root
-  app.use(express.static(path.join(__dirname, '..')));
+  const rootDir = path.join(__dirname, '..');
+  app.use(express.static(rootDir));
 
   // Health Check / Status
   app.get('/api/status', async (req, res) => {
     try {
+      const hasPg = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+      console.log('Environment Check:', {
+        VERCEL: process.env.VERCEL,
+        HAS_PG: hasPg,
+        NODE_ENV: process.env.NODE_ENV
+      });
+
       await ensureDB();
 
       res.json({
         status: 'success',
         message: 'NewsMind AI API is running!',
-        version: '1.1.0',
-        database: (process.env.POSTGRES_URL || process.env.DATABASE_URL) ? 'Postgres (Cloud)' : 'SQLite (Local/Ephemeral)',
-        realtime: 'Serverless mode (Socket.io disabled)',
+        version: '1.2.0',
+        database: hasPg ? 'Postgres (Cloud)' : 'SQLite (Local/Ephemeral fallback)',
+        env: process.env.VERCEL ? 'Vercel' : 'Local',
         endpoints: {
           summary: '/api/summary',
           debate: '/api/debate',
@@ -121,14 +129,14 @@ try {
 
   // Root route serves landing page
   app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+    res.sendFile(path.join(rootDir, 'index.html'));
   });
 
-  // 404 Handler
-  app.use((req, res) => {
+  // 404 Handler - redirect unknown API calls but keep others
+  app.use('/api/*', (req, res) => {
     res.status(404).json({
       status: 'error',
-      message: 'Endpoint not found'
+      message: 'API Endpoint not found'
     });
   });
 
@@ -141,7 +149,6 @@ try {
       status: 'error',
       message: 'Server failed to initialize',
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       hint: 'Check Vercel environment variables and Database connection.'
     });
   });
