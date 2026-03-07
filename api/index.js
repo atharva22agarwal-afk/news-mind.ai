@@ -8,9 +8,15 @@ const app = express();
 let appError = null;
 
 try {
+  // Import database connection
+  const { connectDB } = require('../config/database');
+
   // Check required environment variables
   if (!process.env.GEMINI_API_KEY) {
     console.warn('Warning: GEMINI_API_KEY not set');
+  }
+  if (!process.env.MONGODB_URI) {
+    console.warn('Warning: MONGODB_URI not set - using local MongoDB');
   }
 
   // Middleware
@@ -24,7 +30,31 @@ try {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Import models to register them with Sequelize
+  // Connect to MongoDB on first request (serverless optimization)
+  let dbConnected = false;
+  const ensureDB = async () => {
+    if (!dbConnected) {
+      await connectDB();
+      dbConnected = true;
+    }
+  };
+
+  // Database middleware - ensures connection for all routes
+  app.use(async (req, res, next) => {
+    try {
+      await ensureDB();
+      next();
+    } catch (error) {
+      console.error('Database connection error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Database connection failed',
+        error: error.message
+      });
+    }
+  });
+
+  // Import models (will be available after DB connection)
   require('../models/User');
   require('../models/Summary');
   require('../models/Debate');
@@ -73,19 +103,32 @@ try {
   });
 
   // Health Check
-  app.get('/', (req, res) => {
-    res.json({
-      status: 'success',
-      message: 'News AI Summarizer API is running!',
-      version: '1.0.0',
-      database: 'SQLite',
-      realtime: 'Serverless mode (Socket.io disabled)',
-      endpoints: {
-        summary: '/api/summary',
-        debate: '/api/debate',
-        history: '/api/history'
-      }
-    });
+  app.get('/', async (req, res) => {
+    try {
+      await ensureDB();
+      const dbState = require('mongoose').connection.readyState;
+      const dbStatus = dbState === 1 ? 'connected' : 'disconnected';
+      
+      res.json({
+        status: 'success',
+        message: 'News AI Summarizer API is running!',
+        version: '1.0.0',
+        database: 'MongoDB',
+        dbStatus,
+        realtime: 'Serverless mode (Socket.io disabled)',
+        endpoints: {
+          summary: '/api/summary',
+          debate: '/api/debate',
+          history: '/api/history'
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: 'Health check failed',
+        error: error.message
+      });
+    }
   });
 
   // 404 Handler

@@ -3,7 +3,6 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const Debate = require('../models/Debate');
 const Summary = require('../models/Summary');
-const { Argument } = require('../models/Debate');
 const { judgeArgument, moderateDebate } = require('../services/aiService');
 let io = null;
 
@@ -25,8 +24,8 @@ router.post('/create', async (req, res) => {
       });
     }
     
-    // Verify summary exists
-    const summary = await Summary.findByPk(summaryId);
+    // Verify summary exists (Mongoose syntax)
+    const summary = await Summary.findById(summaryId);
     if (!summary) {
       return res.status(404).json({ 
         success: false, 
@@ -37,23 +36,20 @@ router.post('/create', async (req, res) => {
     // Generate unique room ID
     const roomId = uuidv4();
     
-    // Create debate room
+    // Create debate room (Mongoose syntax)
     const debate = await Debate.create({
       summaryId,
       roomId,
       topic: summary.title,
       description: `Debate about: ${summary.title}`,
       createdBy: userId,
-      participants: [{
-        userId,
-        userName,
-        joinedAt: new Date()
-      }],
+      participants: [userId], // Simple array of userIds
       messages: [{
-        sender: 'system',
-        senderName: 'System',
+        userId: 'system',
+        userName: 'System',
         content: `Debate room created for "${summary.title}". Share the room ID to invite others!`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        side: 'neutral'
       }]
     });
     
@@ -86,7 +82,8 @@ router.post('/:id/argue', async (req, res) => {
     const { content, side, userId = 'guest', userName = 'Anonymous' } = req.body;
     const debateId = req.params.id;
 
-    const debate = await Debate.findByPk(debateId);
+    // Mongoose syntax
+    const debate = await Debate.findById(debateId);
 
     if (!debate) {
       return res.status(404).json({ error: 'Debate not found' });
@@ -104,24 +101,32 @@ router.post('/:id/argue', async (req, res) => {
       return res.status(400).json({ error: 'Argument too short. Make your case!' });
     }
 
-    // Save argument immediately so user gets fast response
-    const newArgument = await Argument.create({
-      debateId: debate.id,
-      userId: userId,
+    // Add argument to embedded array
+    const newArgument = {
+      userId,
       content,
       side,
-      aiIsAnalyzed: false
-    });
+      aiIsAnalyzed: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    debate.arguments.push(newArgument);
+    debate.lastActivity = new Date();
+    await debate.save();
+
+    // Get the saved argument (last one in array)
+    const savedArgument = debate.arguments[debate.arguments.length - 1];
 
     // Send response immediately - don't make user wait for AI
     res.json({
       success: true,
-      argument: newArgument,
+      argument: savedArgument,
       message: 'Argument posted! AI analysis incoming...'
     });
 
     // Run AI analysis in background
-    analyzeArgumentAsync(debate, newArgument, content, side);
+    analyzeArgumentAsync(debate, savedArgument, content, side);
 
   } catch (err) {
     console.error('Argue error:', err);
@@ -137,55 +142,53 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
     // Judge the specific argument
     const analysis = await judgeArgument(content, debate.topic, side);
 
-    // Update the argument in DB
-    await Argument.update(
-      {
-        aiStrengthScore: analysis.strengthScore,
-        aiLogicalFallacies: analysis.strongPoints || [],
-        aiCounterArguments: analysis.weakPoints || [],
-        aiVerdict: analysis.verdict,
-        evidenceQuality: analysis.evidenceQuality,
-        emotionPercent: analysis.emotionPercent,
-        logicPercent: analysis.logicPercent,
-        aiIsAnalyzed: true
-      },
-      { where: { id: argument.id } }
+    // Find and update the argument in the embedded array
+    const argIndex = debate.arguments.findIndex(a => 
+      a._id.toString() === argument._id.toString()
     );
+
+    if (argIndex !== -1) {
+      debate.arguments[argIndex].aiStrengthScore = analysis.strengthScore;
+      debate.arguments[argIndex].aiLogicalFallacies = analysis.strongPoints || [];
+      debate.arguments[argIndex].aiCounterArguments = analysis.weakPoints || [];
+      debate.arguments[argIndex].aiVerdict = analysis.verdict;
+      debate.arguments[argIndex].evidenceQuality = analysis.evidenceQuality;
+      debate.arguments[argIndex].emotionPercent = analysis.emotionPercent;
+      debate.arguments[argIndex].logicPercent = analysis.logicPercent;
+      debate.arguments[argIndex].aiIsAnalyzed = true;
+      debate.arguments[argIndex].updatedAt = new Date();
+
+      await debate.save();
+    }
 
     // Emit to all users watching this debate (real-time update)
     if (io) {
-      io.to(`debate:${debate.id}`).emit('argument-analyzed', {
-        argumentId: argument.id,
+      io.to(`debate:${debate._id}`).emit('argument-analyzed', {
+        argumentId: argument._id,
         analysis,
-        debateId: debate.id
+        debateId: debate._id
       });
     }
 
     // Every 5 arguments, update the full debate moderation
-    const argCount = await Argument.count({ where: { debateId: debate.id } });
-    if (argCount % 5 === 0) {
-      const args = await Argument.findAll({ where: { debateId: debate.id } });
-      
-      const messagesForModeration = args.map(a => ({
+    if (debate.arguments.length % 5 === 0) {
+      const messagesForModeration = debate.arguments.map(a => ({
         sender: a.side,
         content: a.content
       }));
 
       const moderation = await moderateDebate(debate.topic, messagesForModeration);
 
-      await Debate.update(
-        {
-          aiForStrength: moderation.forStrength || 50,
-          aiAgainstStrength: moderation.againstStrength || 50,
-          aiDominantThemes: moderation.dominantThemes || [],
-          aiLastUpdated: new Date()
-        },
-        { where: { id: debate.id } }
-      );
+      debate.aiForStrength = moderation.forStrength || 50;
+      debate.aiAgainstStrength = moderation.againstStrength || 50;
+      debate.aiDominantThemes = moderation.dominantThemes || [];
+      debate.aiLastUpdated = new Date();
+
+      await debate.save();
 
       if (io) {
-        io.to(`debate:${debate.id}`).emit('debate-moderated', {
-          debateId: debate.id,
+        io.to(`debate:${debate._id}`).emit('debate-moderated', {
+          debateId: debate._id,
           moderation
         });
       }
@@ -211,6 +214,7 @@ router.post('/join', async (req, res) => {
       });
     }
     
+    // Mongoose syntax
     const debate = await Debate.findOne({ roomId, isActive: true });
     
     if (!debate) {
@@ -221,7 +225,7 @@ router.post('/join', async (req, res) => {
     }
     
     // Check if already a participant
-    const alreadyJoined = debate.participants.some(p => p.userId === userId);
+    const alreadyJoined = debate.participants.includes(userId);
     
     if (!alreadyJoined) {
       // Check max participants
@@ -233,20 +237,18 @@ router.post('/join', async (req, res) => {
       }
       
       // Add participant
-      debate.participants.push({
-        userId,
-        userName,
-        joinedAt: new Date()
-      });
+      debate.participants.push(userId);
       
       // Add system message
       debate.messages.push({
-        sender: 'system',
-        senderName: 'System',
+        userId: 'system',
+        userName: 'System',
         content: `${userName} joined the debate`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        side: 'neutral'
       });
       
+      debate.lastActivity = new Date();
       await debate.save();
     }
     
@@ -292,7 +294,8 @@ router.post('/message', async (req, res) => {
       });
     }
     
-    const debate = await Debate.findOne({ where: { roomId: roomId, isActive: true } });
+    // Mongoose syntax
+    const debate = await Debate.findOne({ roomId: roomId, isActive: true });
     
     if (!debate) {
       return res.status(404).json({ 
@@ -303,13 +306,14 @@ router.post('/message', async (req, res) => {
     
     // Add user message
     debate.messages.push({
-      sender: 'user',
-      senderId: userId,
-      senderName: userName,
+      userId,
+      userName,
       content: message,
-      timestamp: new Date()
+      timestamp: new Date(),
+      side: 'neutral'
     });
     
+    debate.lastActivity = new Date();
     await debate.save();
     
     let aiResponse = null;
@@ -317,6 +321,7 @@ router.post('/message', async (req, res) => {
     // Generate AI response if requested
     if (requestAIResponse) {
       try {
+        const aiService = require('../services/aiService');
         const aiMessage = await aiService.generateDebateResponse(
           debate.topic, 
           message, 
@@ -324,19 +329,22 @@ router.post('/message', async (req, res) => {
         );
         
         debate.messages.push({
-          sender: 'ai',
-          senderName: 'AI Moderator',
+          userId: 'ai',
+          userName: 'AI Moderator',
           content: aiMessage,
-          timestamp: new Date()
+          timestamp: new Date(),
+          side: 'neutral'
         });
         
+        debate.lastActivity = new Date();
         await debate.save();
         
         aiResponse = {
-          sender: 'ai',
-          senderName: 'AI Moderator',
+          userId: 'ai',
+          userName: 'AI Moderator',
           content: aiMessage,
-          timestamp: new Date()
+          timestamp: new Date(),
+          side: 'neutral'
         };
         
       } catch (aiError) {
@@ -350,10 +358,11 @@ router.post('/message', async (req, res) => {
       success: true,
       data: {
         userMessage: {
-          sender: 'user',
-          senderName: userName,
+          userId,
+          userName,
           content: message,
-          timestamp: new Date()
+          timestamp: new Date(),
+          side: 'neutral'
         },
         aiResponse
       }
@@ -383,7 +392,8 @@ router.post('/moderate', async (req, res) => {
       });
     }
     
-    const debate = await Debate.findOne({ where: { roomId: roomId, isActive: true } });
+    // Mongoose syntax
+    const debate = await Debate.findOne({ roomId: roomId, isActive: true });
     
     if (!debate) {
       return res.status(404).json({ 
@@ -392,17 +402,21 @@ router.post('/moderate', async (req, res) => {
       });
     }
     
+    const aiService = require('../services/aiService');
+    
     // Generate moderation response
     const moderation = await aiService.moderateDebate(debate.topic, debate.messages);
     
     // Add moderation message
     debate.messages.push({
-      sender: 'ai',
-      senderName: 'AI Moderator',
+      userId: 'ai',
+      userName: 'AI Moderator',
       content: moderation,
-      timestamp: new Date()
+      timestamp: new Date(),
+      side: 'neutral'
     });
     
+    debate.lastActivity = new Date();
     await debate.save();
     
     console.log(`✅ Moderation added to debate: ${roomId}`);
@@ -411,10 +425,11 @@ router.post('/moderate', async (req, res) => {
       success: true,
       data: {
         moderation: {
-          sender: 'ai',
-          senderName: 'AI Moderator',
+          userId: 'ai',
+          userName: 'AI Moderator',
           content: moderation,
-          timestamp: new Date()
+          timestamp: new Date(),
+          side: 'neutral'
         }
       }
     });
@@ -434,9 +449,8 @@ router.post('/moderate', async (req, res) => {
  */
 router.get('/:roomId', async (req, res) => {
   try {
-    const debate = await Debate.findOne({ 
-      where: { roomId: req.params.roomId }
-    });
+    // Mongoose syntax
+    const debate = await Debate.findOne({ roomId: req.params.roomId });
     
     if (!debate) {
       return res.status(404).json({ 
@@ -467,7 +481,8 @@ router.delete('/:roomId', async (req, res) => {
   try {
     const { userId } = req.body;
     
-    const debate = await Debate.findOne({ where: { roomId: req.params.roomId } });
+    // Mongoose syntax
+    const debate = await Debate.findOne({ roomId: req.params.roomId });
     
     if (!debate) {
       return res.status(404).json({ 
@@ -485,6 +500,7 @@ router.delete('/:roomId', async (req, res) => {
     }
     
     debate.isActive = false;
+    debate.status = 'closed';
     await debate.save();
     
     console.log(`✅ Debate room closed: ${req.params.roomId}`);

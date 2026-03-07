@@ -1,62 +1,125 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Poll = sequelize.define('Poll', {
-    id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-    },
+const pollSchema = new mongoose.Schema({
     summaryId: {
-        type: DataTypes.INTEGER,
-        allowNull: true
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Summary',
+        default: null,
+        index: true
     },
     question: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     optionA: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     optionB: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     votesA: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     votesB: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     voters: {
-        type: DataTypes.JSON, // Array of user IDs who voted
-        defaultValue: []
+        type: [String], // Array of user IDs who voted
+        default: []
     },
     userId: {
-        type: DataTypes.STRING,
-        defaultValue: 'guest'
+        type: String,
+        default: 'guest'
     },
     // AI Insight fields
     aiInsight: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String,
+        default: null
     },
     aiInsightGeneratedAt: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date,
+        default: null
+    },
+    aiSentimentOptionA: {
+        type: String,
+        enum: ['positive', 'negative', 'neutral'],
+        default: null
+    },
+    aiSentimentOptionB: {
+        type: String,
+        enum: ['positive', 'negative', 'neutral'],
+        default: null
     },
     status: {
-        type: DataTypes.ENUM('active', 'closed'),
-        defaultValue: 'active'
+        type: String,
+        enum: ['active', 'closed'],
+        default: 'active'
     }
 }, {
-    tableName: 'polls',
     timestamps: true,
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    collection: 'polls'
 });
+
+// Indexes for faster queries
+pollSchema.index({ summaryId: 1 });
+pollSchema.index({ userId: 1 });
+pollSchema.index({ status: 1 });
+pollSchema.index({ createdAt: -1 });
+
+// Virtual: calculate total votes
+pollSchema.virtual('totalVotes').get(function() {
+    return this.votesA + this.votesB;
+});
+
+// Virtual: get leading option
+pollSchema.virtual('leadingOption').get(function() {
+    if (this.votesA > this.votesB) return 'A';
+    if (this.votesB > this.votesA) return 'B';
+    return 'tie';
+});
+
+// Method to vote
+pollSchema.methods.vote = function(userId, option) {
+    // Check if user already voted
+    if (this.voters.includes(userId)) {
+        throw new Error('User already voted');
+    }
+    
+    // Record vote
+    if (option === 'A') {
+        this.votesA += 1;
+    } else if (option === 'B') {
+        this.votesB += 1;
+    } else {
+        throw new Error('Invalid option. Use "A" or "B"');
+    }
+    
+    this.voters.push(userId);
+    return this;
+};
+
+// Method to check if user has voted
+pollSchema.methods.hasVoted = function(userId) {
+    return this.voters.includes(userId);
+};
+
+// Method to get results percentage
+pollSchema.methods.getResults = function() {
+    const total = this.votesA + this.votesB;
+    if (total === 0) {
+        return { A: 0, B: 0, total: 0 };
+    }
+    return {
+        A: Math.round((this.votesA / total) * 100),
+        B: Math.round((this.votesB / total) * 100),
+        total
+    };
+};
+
+const Poll = mongoose.model('Poll', pollSchema);
 
 module.exports = Poll;

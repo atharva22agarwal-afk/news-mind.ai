@@ -17,6 +17,7 @@ router.post('/create', async (req, res) => {
       });
     }
     
+    // Mongoose syntax
     const poll = await Poll.create({
       question,
       optionA,
@@ -28,7 +29,7 @@ router.post('/create', async (req, res) => {
       voters: []
     });
     
-    console.log(`✅ Poll created: ${poll.id}`);
+    console.log(`✅ Poll created: ${poll._id}`);
     
     res.json({
       success: true,
@@ -59,7 +60,8 @@ router.post('/vote', async (req, res) => {
       });
     }
     
-    const poll = await Poll.findByPk(pollId);
+    // Mongoose syntax
+    const poll = await Poll.findById(pollId);
     
     if (!poll) {
       return res.status(404).json({
@@ -141,7 +143,7 @@ async function generatePollInsight(poll) {
     poll.aiInsightGeneratedAt = new Date();
     await poll.save();
     
-    console.log(`✅ AI insight generated for poll ${poll.id}`);
+    console.log(`✅ AI insight generated for poll ${poll._id}`);
   } catch (error) {
     console.error('AI insight error:', error.message);
   }
@@ -153,7 +155,8 @@ async function generatePollInsight(poll) {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const poll = await Poll.findByPk(req.params.id);
+    // Mongoose syntax
+    const poll = await Poll.findById(req.params.id);
     
     if (!poll) {
       return res.status(404).json({
@@ -182,9 +185,9 @@ router.get('/:id', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const polls = await Poll.findAll({
-      order: [['createdAt', 'DESC']]
-    });
+    // Mongoose syntax
+    const polls = await Poll.find()
+      .sort({ createdAt: -1 });
     
     res.json({
       success: true,

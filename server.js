@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sequelize = require('./config/database');
+const { connectDB } = require('./config/database');
 const http = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
@@ -69,11 +69,11 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Serve static files (for audio files)
 app.use('/uploads', express.static('uploads'));
 
-// Import models to register them with Sequelize
-const User = require('./models/User');
-const Summary = require('./models/Summary');
-const Debate = require('./models/Debate');
-const Poll = require('./models/Poll');
+// Import models (registers them with Mongoose)
+require('./models/User');
+require('./models/Summary');
+require('./models/Debate');
+require('./models/Poll');
 
 // AI Service for comparison tool
 const aiService = require('./services/aiService');
@@ -118,19 +118,31 @@ app.post('/api/tools/compare', async (req, res) => {
 });
 
 // Health Check
-app.get('/', (req, res) => {
-  res.json({
-    status: 'success',
-    message: 'News AI Summarizer API is running!',
-    version: '1.0.0',
-    database: 'SQLite',
-    realtime: 'Socket.io enabled',
-    endpoints: {
-      summary: '/api/summary',
-      debate: '/api/debate',
-      history: '/api/history'
-    }
-  });
+app.get('/', async (req, res) => {
+  try {
+    const dbState = require('mongoose').connection.readyState;
+    const dbStatus = dbState === 1 ? 'connected' : 'disconnected';
+    
+    res.json({
+      status: 'success',
+      message: 'News AI Summarizer API is running!',
+      version: '1.0.0',
+      database: 'MongoDB',
+      dbStatus,
+      realtime: 'Socket.io enabled',
+      endpoints: {
+        summary: '/api/summary',
+        debate: '/api/debate',
+        history: '/api/history'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Health check failed',
+      error: error.message
+    });
+  }
 });
 
 // 404 Handler
@@ -150,19 +162,26 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server with SQLite sync
+// Start Server with MongoDB connection
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ force: false }).then(() => {
-  console.log('✅ SQLite Database Connected & Synced');
-  console.log('📊 Database file: newsmind.sqlite');
+// Connect to MongoDB and start server
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
+    console.log('✅ MongoDB Connected & Models Registered');
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📱 Access from other devices: http://YOUR_IP:${PORT}`);
-    console.log(`📚 API Documentation: http://localhost:${PORT}/`);
-    console.log(`🔌 Socket.io enabled for real-time features`);
-  });
-}).catch(err => {
-  console.error('❌ Database Error:', err);
-});
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`📱 Access from other devices: http://YOUR_IP:${PORT}`);
+      console.log(`📚 API Documentation: http://localhost:${PORT}/`);
+      console.log(`🔌 Socket.io enabled for real-time features`);
+    });
+  } catch (err) {
+    console.error('❌ Failed to start server:', err);
+    process.exit(1);
+  }
+};
+
+startServer();

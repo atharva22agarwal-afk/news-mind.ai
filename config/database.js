@@ -1,25 +1,55 @@
-const { Sequelize } = require('sequelize');
-const path = require('path');
+const mongoose = require('mongoose');
 
-// Use /tmp for serverless environments (Vercel), otherwise use project root
-const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production';
-const storagePath = isServerless
-  ? path.join('/tmp', 'newsmind.sqlite')
-  : path.join(__dirname, '..', 'newsmind.sqlite');
+// MongoDB Connection URI from environment variable
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/newsmind';
 
-console.log(`📊 SQLite Database path: ${storagePath}`);
+// Connection options
+const options = {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+};
 
-const sequelize = new Sequelize({
-    dialect: 'sqlite',
-    storage: storagePath,
-    logging: false // cleaner console output
+// Connect to MongoDB
+const connectDB = async () => {
+    try {
+        if (mongoose.connection.readyState >= 1) {
+            console.log('📊 MongoDB Already Connected');
+            return;
+        }
+
+        await mongoose.connect(MONGODB_URI, options);
+        console.log('✅ MongoDB Connected Successfully');
+    } catch (error) {
+        console.error('❌ MongoDB Connection Error:', error.message);
+        // Don't exit process on Vercel serverless environment
+        if (!process.env.VERCEL) {
+            process.exit(1);
+        }
+        throw error;
+    }
+};
+
+// Handle connection events
+mongoose.connection.on('connected', () => {
+    console.log('📊 Mongoose connected to MongoDB');
 });
 
-// Sync database on startup
-sequelize.sync({ force: false }).then(() => {
-  console.log('✅ SQLite Database Connected & Synced');
-}).catch(err => {
-  console.error('❌ Database Error:', err);
+mongoose.connection.on('error', (err) => {
+    console.error('❌ Mongoose connection error:', err);
 });
 
-module.exports = sequelize;
+mongoose.connection.on('disconnected', () => {
+    console.log('📊 Mongoose disconnected');
+});
+
+// For Vercel serverless - ensure connection is ready
+const getConnection = async () => {
+    if (mongoose.connection.readyState !== 1) {
+        await connectDB();
+    }
+    return mongoose.connection;
+};
+
+module.exports = { connectDB, getConnection, mongoose };

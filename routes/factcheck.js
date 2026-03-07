@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { factCheck } = require('../services/aiService');
-const { Argument } = require('../models/Debate');
+const Debate = require('../models/Debate');
 
 // Rate limiting storage (simple in-memory for now)
 const rateLimitStore = new Map();
@@ -44,15 +44,18 @@ router.post('/', factCheckLimiter, async (req, res) => {
     // Optional: if this fact-check is linked to a debate argument, save it
     if (debateId && argumentId) {
       try {
-        await Argument.update(
-          {
-            factCheckVerdict: result.verdict,
-            factCheckConfidence: result.confidence,
-            factCheckExplanation: result.explanation,
-            factCheckCheckedAt: new Date()
-          },
-          { where: { id: argumentId, debateId } }
-        );
+        // Mongoose syntax - find debate and update embedded argument
+        const debate = await Debate.findById(debateId);
+        if (debate) {
+          const argument = debate.arguments.id(argumentId);
+          if (argument) {
+            argument.factCheckVerdict = result.verdict;
+            argument.factCheckConfidence = result.confidence;
+            argument.factCheckExplanation = result.explanation;
+            argument.factCheckCheckedAt = new Date();
+            await debate.save();
+          }
+        }
       } catch (dbError) {
         console.log('Could not link fact-check to argument:', dbError.message);
       }

@@ -99,7 +99,7 @@ router.post('/url', async (req, res) => {
     cache.set(cacheKey, responseData);
     console.log(`💾 Cached summary for: ${url}`);
 
-    // Save to database
+    // Save to database (Mongoose syntax)
     const summaryDoc = await Summary.create({
       userId,
       title,
@@ -113,12 +113,12 @@ router.post('/url', async (req, res) => {
       readingTime: result.readingTime
     });
 
-    console.log(`✅ Summary created: ${summaryDoc.id}`);
+    console.log(`✅ Summary created: ${summaryDoc._id}`);
 
     res.json({
       success: true,
       data: {
-        id: summaryDoc.id,
+        id: summaryDoc._id,
         ...responseData,
         createdAt: summaryDoc.createdAt
       }
@@ -170,7 +170,7 @@ router.post('/file', upload.single('file'), async (req, res) => {
     // Generate summary - returns an object
     const result = await aiService.summarizeText(extracted.content, depth);
 
-    // Save to database
+    // Save to database (Mongoose syntax)
     const summaryDoc = await Summary.create({
       userId,
       title: extracted.title,
@@ -184,12 +184,12 @@ router.post('/file', upload.single('file'), async (req, res) => {
       readingTime: result.readingTime
     });
 
-    console.log(`✅ Summary created: ${summaryDoc.id}`);
+    console.log(`✅ Summary created: ${summaryDoc._id}`);
 
     res.json({
       success: true,
       data: {
-        id: summaryDoc.id,
+        id: summaryDoc._id,
         title: extracted.title,
         summary: result.summary,
         keyPoints: result.keyPoints,
@@ -256,7 +256,7 @@ router.post('/text', async (req, res) => {
     // Generate title if not provided
     const finalTitle = title || result.title || aiService.generateTitle(text);
 
-    // Save to database
+    // Save to database (Mongoose syntax)
     const summaryDoc = await Summary.create({
       userId,
       title: finalTitle,
@@ -270,12 +270,12 @@ router.post('/text', async (req, res) => {
       readingTime: result.readingTime
     });
 
-    console.log(`✅ Summary created: ${summaryDoc.id}`);
+    console.log(`✅ Summary created: ${summaryDoc._id}`);
 
     res.json({
       success: true,
       data: {
-        id: summaryDoc.id,
+        id: summaryDoc._id,
         title: finalTitle,
         summary: result.summary,
         keyPoints: result.keyPoints,
@@ -303,7 +303,8 @@ router.post('/text', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const summary = await Summary.findByPk(req.params.id);
+    // Mongoose uses findById instead of findByPk
+    const summary = await Summary.findById(req.params.id);
 
     if (!summary) {
       return res.status(404).json({
@@ -351,14 +352,12 @@ router.post('/deep', async (req, res) => {
       }
     }
 
-    // Check if this URL was already summarized recently (24hr cache)
+    // Check if this URL was already summarized recently (24hr cache) - Mongoose syntax
     if (sourceUrl) {
       const recent = await Summary.findOne({
-        where: {
-          sourceUrl,
-          createdAt: {
-            [require('sequelize').Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-          }
+        sourceUrl,
+        createdAt: {
+          $gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
         }
       });
 
@@ -370,7 +369,7 @@ router.post('/deep', async (req, res) => {
     // Deep AI analysis
     const analysis = await deepSummarize(content, sourceUrl);
 
-    // Save to DB with full structured data
+    // Save to DB with full structured data (Mongoose syntax)
     const summary = await Summary.create({
       userId,
       sourceUrl,
@@ -403,14 +402,13 @@ router.post('/deep', async (req, res) => {
  */
 router.get('/trending', async (req, res) => {
   try {
-    const summaries = await Summary.findAll({
-      where: { isPublic: true },
-      order: [['viewCount', 'DESC'], ['createdAt', 'DESC']],
-      limit: 20
-    });
+    // Mongoose syntax - find instead of findAll, sort instead of order
+    const summaries = await Summary.find({ isPublic: true })
+      .sort({ viewCount: -1, createdAt: -1 })
+      .limit(20);
 
     const formatted = summaries.map(s => ({
-      id: s.id,
+      id: s._id,
       headline: s.headline || s.title,
       tldr: s.tldr,
       sentiment: s.sentiment,

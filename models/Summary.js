@@ -1,128 +1,146 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Summary = sequelize.define('Summary', {
-    id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-    },
+const summarySchema = new mongoose.Schema({
     userId: {
-        type: DataTypes.STRING,
-        allowNull: false,
-        defaultValue: 'guest'
+        type: String,
+        required: true,
+        default: 'guest',
+        index: true
     },
     source: {
-        type: DataTypes.ENUM('text', 'url', 'file'),
-        allowNull: false
+        type: String,
+        enum: ['text', 'url', 'file'],
+        required: true
     },
     title: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     originalContent: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String,
+        default: null
     },
     sourceUrl: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
     fileName: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
     // Structured AI output fields
     headline: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
     tldr: {
-        type: DataTypes.TEXT, // One-line summary
-        allowNull: true
+        type: String, // One-line summary
+        default: null
     },
     summary: {
-        type: DataTypes.TEXT,
-        allowNull: false
+        type: String,
+        required: true
     },
     keyPoints: {
-        type: DataTypes.JSON, // Store as JSON array
-        defaultValue: []
+        type: [String], // Array of strings
+        default: []
     },
+    // Categorized insights
+    insights: {
+        political: {
+            type: String,
+            default: null
+        },
+        economic: {
+            type: String,
+            default: null
+        },
+        social: {
+            type: String,
+            default: null
+        },
+        environmental: {
+            type: String,
+            default: null
+        },
+        legal: {
+            type: String,
+            default: null
+        },
+        technological: {
+            type: String,
+            default: null
+        },
+        ethical: {
+            type: String,
+            default: null
+        }
+    },
+    // Analysis
     sentiment: {
-        type: DataTypes.ENUM('positive', 'negative', 'neutral', 'mixed'),
-        allowNull: true
+        type: String,
+        enum: ['positive', 'negative', 'neutral', 'mixed'],
+        default: null
     },
-    biasWarning: {
-        type: DataTypes.TEXT, // Flag potential bias
-        allowNull: true
+    biasAnalysis: {
+        type: Object,
+        default: null
     },
-    biasScore: {
-        type: DataTypes.INTEGER, // -5 (left) to 5 (right)
-        validate: { min: -5, max: 5 },
-        allowNull: true
-    },
-    credibilityFlags: {
-        type: DataTypes.JSON, // Array of red flags
-        defaultValue: []
-    },
-    readTime: {
-        type: DataTypes.INTEGER, // Estimated minutes
-        defaultValue: 0
-    },
-    category: {
-        type: DataTypes.STRING, // auto-classified topic
-        allowNull: true
-    },
-    relatedDebateId: {
-        type: DataTypes.INTEGER, // Link to debate
-        allowNull: true
-    },
-    depth: {
-        type: DataTypes.ENUM('brief', 'medium', 'detailed'),
-        defaultValue: 'medium'
-    },
+    // Metadata
     wordCount: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
     readingTime: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
+        type: Number, // in minutes
+        default: 0
     },
-    model: {
-        type: DataTypes.STRING,
-        defaultValue: 'llama-3.3-70b-versatile'
+    language: {
+        type: String,
+        default: 'en'
     },
-    provider: {
-        type: DataTypes.STRING,
-        defaultValue: 'Groq AI'
+    // Related entities
+    topics: {
+        type: [String],
+        default: []
     },
+    entities: {
+        type: [String],
+        default: []
+    },
+    // Audio generation
     audioUrl: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
-    pageCount: {
-        type: DataTypes.INTEGER,
-        allowNull: true
+    audioGeneratedAt: {
+        type: Date,
+        default: null
     },
-    isPublic: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
-    },
+    // Engagement
     viewCount: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
+        type: Number,
+        default: 0
     },
-    semanticGravity: {
-        type: DataTypes.FLOAT,
-        allowNull: true
+    isFavorite: {
+        type: Boolean,
+        default: false
+    },
+    isArchived: {
+        type: Boolean,
+        default: false
     }
 }, {
-    tableName: 'summaries',
     timestamps: true,
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    collection: 'summaries'
 });
+
+// Indexes for faster queries
+summarySchema.index({ userId: 1, createdAt: -1 });
+summarySchema.index({ userId: 1, isFavorite: 1 });
+summarySchema.index({ topics: 1 });
+summarySchema.index({ createdAt: -1 });
+
+const Summary = mongoose.model('Summary', summarySchema);
 
 module.exports = Summary;

@@ -1,195 +1,205 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const mongoose = require('mongoose');
 
-const Argument = sequelize.define('Argument', {
-    id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
-    },
-    debateId: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        references: {
-            model: 'debates',
-            key: 'id'
-        }
-    },
+// Argument Schema (embedded in Debate)
+const argumentSchema = new mongoose.Schema({
     userId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'users',
-            key: 'id'
-        }
+        type: String,
+        default: null
     },
     content: {
-        type: DataTypes.TEXT,
-        allowNull: false
+        type: String,
+        required: true
     },
     side: {
-        type: DataTypes.ENUM('for', 'against'),
-        allowNull: false
+        type: String,
+        enum: ['for', 'against'],
+        required: true
     },
     // AI Analysis fields
     aiStrengthScore: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        validate: { min: 0, max: 100 }
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
     },
     aiLogicalFallacies: {
-        type: DataTypes.JSON, // Store as array
-        defaultValue: []
+        type: [String],
+        default: []
     },
     aiCounterArguments: {
-        type: DataTypes.JSON, // Store as array
-        defaultValue: []
+        type: [String],
+        default: []
     },
     aiIsAnalyzed: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
+        type: Boolean,
+        default: false
     },
     aiVerdict: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
     evidenceQuality: {
-        type: DataTypes.ENUM('anecdotal', 'weak', 'moderate', 'strong'),
-        allowNull: true
+        type: String,
+        enum: ['anecdotal', 'weak', 'moderate', 'strong'],
+        default: null
     },
     emotionPercent: {
-        type: DataTypes.INTEGER,
-        validate: { min: 0, max: 100 }
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
     },
     logicPercent: {
-        type: DataTypes.INTEGER,
-        validate: { min: 0, max: 100 }
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
     },
     // Voting
     upVotes: {
-        type: DataTypes.JSON,
-        defaultValue: [] // Array of user IDs
+        type: [String], // Array of user IDs
+        default: []
     },
     downVotes: {
-        type: DataTypes.JSON,
-        defaultValue: [] // Array of user IDs
+        type: [String], // Array of user IDs
+        default: []
     },
     // Fact-check fields
     factCheckVerdict: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
     factCheckConfidence: {
-        type: DataTypes.INTEGER,
-        validate: { min: 0, max: 100 },
-        allowNull: true
+        type: Number,
+        min: 0,
+        max: 100,
+        default: null
     },
     factCheckExplanation: {
-        type: DataTypes.TEXT,
-        allowNull: true
+        type: String,
+        default: null
     },
     factCheckCheckedAt: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date,
+        default: null
     }
 }, {
-    tableName: 'arguments',
     timestamps: true
 });
 
-const Debate = sequelize.define('Debate', {
-    id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true
+// Message Schema (embedded in Debate)
+const messageSchema = new mongoose.Schema({
+    userId: {
+        type: String,
+        required: true
     },
+    userName: {
+        type: String,
+        default: 'Anonymous'
+    },
+    content: {
+        type: String,
+        required: true
+    },
+    side: {
+        type: String,
+        enum: ['for', 'against', 'neutral'],
+        default: 'neutral'
+    },
+    timestamp: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+// Debate Schema
+const debateSchema = new mongoose.Schema({
     summaryId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'summaries',
-            key: 'id'
-        }
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Summary',
+        default: null,
+        index: true
     },
     roomId: {
-        type: DataTypes.STRING,
+        type: String,
         unique: true,
-        allowNull: false
+        required: true,
+        index: true
     },
     topic: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: String,
+        required: true
     },
     description: {
-        type: DataTypes.STRING,
-        allowNull: true
+        type: String,
+        default: null
     },
     status: {
-        type: DataTypes.ENUM('active', 'closed', 'archived'),
-        defaultValue: 'active'
+        type: String,
+        enum: ['active', 'closed', 'archived'],
+        default: 'active'
     },
     participants: {
-        type: DataTypes.JSON,
-        defaultValue: []
+        type: [String], // Array of user IDs
+        default: []
     },
-    messages: {
-        type: DataTypes.JSON,
-        defaultValue: []
-    },
+    messages: [messageSchema],
+    arguments: [argumentSchema],
     isActive: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+        type: Boolean,
+        default: true
     },
     maxParticipants: {
-        type: DataTypes.INTEGER,
-        defaultValue: 10
+        type: Number,
+        default: 10
     },
     createdBy: {
-        type: DataTypes.STRING,
-        defaultValue: 'guest'
+        type: String,
+        default: 'guest'
     },
     // AI-generated debate summary
     aiForStrength: {
-        type: DataTypes.INTEGER,
-        allowNull: true
+        type: Number,
+        default: null
     },
     aiAgainstStrength: {
-        type: DataTypes.INTEGER,
-        allowNull: true
+        type: Number,
+        default: null
     },
     aiDominantThemes: {
-        type: DataTypes.JSON,
-        defaultValue: []
+        type: [String],
+        default: []
     },
     aiLastUpdated: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date,
+        default: null
     },
     tags: {
-        type: DataTypes.JSON,
-        defaultValue: []
+        type: [String],
+        default: []
     },
     expiresAt: {
-        type: DataTypes.DATE,
-        allowNull: true
+        type: Date,
+        default: null
     },
     lastActivity: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW
+        type: Date,
+        default: Date.now
     }
 }, {
-    tableName: 'debates',
-    timestamps: true,
-    createdAt: 'createdAt',
-    updatedAt: 'lastActivity'
+    timestamps: { createdAt: 'createdAt', updatedAt: 'lastActivity' },
+    collection: 'debates'
 });
 
-// Define associations
-Debate.hasMany(Argument, { foreignKey: 'debateId', as: 'arguments' });
-Argument.belongsTo(Debate, { foreignKey: 'debateId' });
+// Indexes for faster queries
+debateSchema.index({ roomId: 1 });
+debateSchema.index({ status: 1 });
+debateSchema.index({ createdBy: 1 });
+debateSchema.index({ lastActivity: -1 });
+debateSchema.index({ tags: 1 });
 
 // Virtual: who's winning based on AI scores
-Debate.prototype.getCurrentLeader = function() {
+debateSchema.methods.getCurrentLeader = function() {
     const args = this.arguments || [];
     const forArgs = args.filter(a => a.side === 'for');
     const againstArgs = args.filter(a => a.side === 'against');
@@ -199,7 +209,55 @@ Debate.prototype.getCurrentLeader = function() {
     
     if (forScore > againstScore) return 'for';
     if (againstScore > forScore) return 'against';
-    return 'tied';
+    return 'tie';
 };
 
-module.exports = { Debate, Argument };
+// Virtual: calculate total engagement
+debateSchema.virtual('engagement').get(function() {
+    return {
+        argumentCount: this.arguments?.length || 0,
+        messageCount: this.messages?.length || 0,
+        participantCount: this.participants?.length || 0,
+        totalVotes: this.arguments?.reduce((sum, arg) => 
+            sum + (arg.upVotes?.length || 0) + (arg.downVotes?.length || 0), 0
+        ) || 0
+    };
+});
+
+// Method to check if debate is expired
+debateSchema.methods.isExpired = function() {
+    if (!this.expiresAt) return false;
+    return new Date() > this.expiresAt;
+};
+
+// Method to add participant
+debateSchema.methods.addParticipant = function(userId) {
+    if (!this.participants.includes(userId)) {
+        this.participants.push(userId);
+    }
+    return this;
+};
+
+// Method to add message
+debateSchema.methods.addMessage = function(userId, userName, content, side = 'neutral') {
+    this.messages.push({
+        userId,
+        userName,
+        content,
+        side,
+        timestamp: new Date()
+    });
+    this.lastActivity = new Date();
+    return this;
+};
+
+// Method to add argument
+debateSchema.methods.addArgument = function(argumentData) {
+    this.arguments.push(argumentData);
+    this.lastActivity = new Date();
+    return this;
+};
+
+const Debate = mongoose.model('Debate', debateSchema);
+
+module.exports = Debate;

@@ -17,8 +17,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if user exists
-    let user = await User.findOne({ where: { email: email.toLowerCase() } });
+    // Check if user exists (Mongoose syntax)
+    let user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
       // Create new user
@@ -28,13 +28,13 @@ router.post('/login', async (req, res) => {
         userId: userId,
         email: email.toLowerCase(),
         name: name,
-        lastActive: Date.now()
+        lastActive: new Date()
       });
 
       console.log('✅ New user created:', email);
     } else {
       // Update last active time for existing users
-      user.lastActive = Date.now();
+      user.lastActive = new Date();
       await user.save();
       console.log('✅ Existing user logged in:', email);
     }
@@ -65,7 +65,7 @@ router.post('/login', async (req, res) => {
  */
 router.get('/user/:userId', async (req, res) => {
   try {
-    const user = await User.findOne({ where: { userId: req.params.userId } });
+    const user = await User.findOne({ userId: req.params.userId });
 
     if (!user) {
       return res.status(404).json({

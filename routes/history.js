@@ -17,22 +17,20 @@ router.get('/summaries', async (req, res) => {
       depth 
     } = req.query;
     
-    // Build where clause
-    const where = { userId };
-    if (source) where.source = source;
-    if (depth) where.depth = depth;
+    // Build query filter
+    const filter = { userId };
+    if (source) filter.source = source;
+    if (depth) filter.depth = depth;
     
-    // Get summaries
-    const summaries = await Summary.findAll({
-      where,
-      order: [['createdAt', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(skip),
-      attributes: { exclude: ['originalContent'] }
-    });
+    // Get summaries (Mongoose syntax)
+    const summaries = await Summary.find(filter)
+      .select('-originalContent') // Exclude originalContent
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(parseInt(skip));
     
     // Get total count
-    const total = await Summary.count({ where });
+    const total = await Summary.countDocuments(filter);
     
     res.json({
       success: true,
@@ -64,32 +62,30 @@ router.get('/debates', async (req, res) => {
   try {
     const { userId = 'guest', limit = 20, skip = 0 } = req.query;
     
-    // Find debates where user is a participant (stored as JSON)
-    const debates = await Debate.findAll({
-      where: { isActive: true },
-      order: [['lastActivity', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(skip)
-    });
-    
-    // Filter by userId in participants (client-side for JSON field)
-    const userDebates = debates.filter(d => {
-      const participants = d.participants || [];
-      return participants.some(p => p.userId === userId);
-    });
+    // Find debates where user is in participants array (Mongoose syntax)
+    const debates = await Debate.find({ 
+      isActive: true,
+      participants: { $in: [userId] }
+    })
+      .sort({ lastActivity: -1 })
+      .limit(parseInt(limit))
+      .skip(parseInt(skip));
     
     // Get total count
-    const total = await Debate.count({ where: { isActive: true } });
+    const total = await Debate.countDocuments({ 
+      isActive: true,
+      participants: { $in: [userId] }
+    });
     
     res.json({
       success: true,
       data: {
-        debates: userDebates,
+        debates,
         pagination: {
           total,
           limit: parseInt(limit),
           skip: parseInt(skip),
-          hasMore: (parseInt(skip) + userDebates.length) < total
+          hasMore: (parseInt(skip) + debates.length) < total
         }
       }
     });
@@ -112,38 +108,40 @@ router.get('/stats', async (req, res) => {
     const { userId = 'guest' } = req.query;
     
     // Count summaries
-    const totalSummaries = await Summary.count({ where: { userId } });
+    const totalSummaries = await Summary.countDocuments({ userId });
     
-    // Count debates - get all and filter
-    const allDebates = await Debate.findAll();
-    const userDebates = allDebates.filter(d => {
-      const participants = d.participants || [];
-      return participants.some(p => p.userId === userId);
+    // Count debates where user is a participant
+    const totalDebates = await Debate.countDocuments({
+      participants: { $in: [userId] }
     });
-    const totalDebates = userDebates.length;
     
-    // Count messages
+    // Count messages in debates
+    const debatesWithUser = await Debate.find({
+      participants: { $in: [userId] }
+    });
+    
     let totalMessages = 0;
-    userDebates.forEach(debate => {
+    debatesWithUser.forEach(debate => {
       const messages = debate.messages || [];
-      totalMessages += messages.filter(m => m.senderId === userId).length;
+      totalMessages += messages.filter(m => m.userId === userId).length;
     });
     
     // Get summary breakdown by source
-    const summaries = await Summary.findAll({ where: { userId } });
-    const summaryBySource = {};
-    summaries.forEach(s => {
-      summaryBySource[s.source] = (summaryBySource[s.source] || 0) + 1;
-    });
-    const summaryBySourceArray = Object.entries(summaryBySource).map(([id, count]) => ({ source: id, count }));
+    const summaryBySource = await Summary.aggregate([
+      { $match: { userId } },
+      { $group: { _id: '$source', count: { $sum: 1 } } }
+    ]);
+    
+    const summaryBySourceArray = summaryBySource.map(s => ({ 
+      source: s._id, 
+      count: s.count 
+    }));
     
     // Get recent activity
-    const recentSummaries = await Summary.findAll({
-      where: { userId },
-      order: [['createdAt', 'DESC']],
-      limit: 5,
-      attributes: ['title', 'createdAt', 'source']
-    });
+    const recentSummaries = await Summary.find({ userId })
+      .select('title createdAt source')
+      .sort({ createdAt: -1 })
+      .limit(5);
     
     res.json({
       success: true,
@@ -173,11 +171,10 @@ router.delete('/summary/:id', async (req, res) => {
   try {
     const { userId = 'guest' } = req.body;
     
-    const summary = await Summary.findOne({ 
-      where: { 
-        id: req.params.id, 
-        userId 
-      }
+    // Mongoose syntax
+    const summary = await Summary.findOneAndDelete({ 
+      _id: req.params.id, 
+      userId 
     });
     
     if (!summary) {
@@ -186,8 +183,6 @@ router.delete('/summary/:id', async (req, res) => {
         message: 'Summary not found' 
       });
     }
-    
-    await summary.destroy();
     
     console.log(`✅ Summary deleted: ${req.params.id}`);
     
@@ -214,19 +209,18 @@ router.delete('/clear', async (req, res) => {
     const { userId = 'guest', type } = req.body;
     
     if (type === 'summaries' || !type) {
-      await Summary.destroy({ where: { userId } });
+      await Summary.deleteMany({ userId });
     }
     
     if (type === 'debates' || !type) {
-      // For debates, just mark as inactive
-      const debates = await Debate.findAll();
-      for (const debate of debates) {
-        const participants = debate.participants || [];
-        if (participants.some(p => p.userId === userId)) {
-          debate.isActive = false;
-          await debate.save();
+      // For debates, update to remove user from participants or mark as inactive
+      await Debate.updateMany(
+        { participants: { $in: [userId] } },
+        { 
+          $pull: { participants: userId },
+          $set: { isActive: false }
         }
-      }
+      );
     }
     
     console.log(`✅ History cleared for user: ${userId}`);
