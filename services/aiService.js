@@ -4,15 +4,24 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Initialize Gemini with API key from environment
 const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  throw new Error('GEMINI_API_KEY is not defined in environment variables.');
+let genAI;
+let model;
+
+function initializeAI() {
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not defined in environment variables.');
+  }
+  if (!genAI) {
+    genAI = new GoogleGenerativeAI(apiKey);
+    model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  }
+  return { genAI, model };
 }
-const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 // ── CORE CALLER ──────────────────────────────────────────────
 async function callAI(system, userMessage, maxTokens = 1024) {
   try {
+    const { model } = initializeAI();
     const chat = model.startChat({
       history: [],
       generationConfig: {
