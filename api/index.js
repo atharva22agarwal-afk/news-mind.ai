@@ -98,7 +98,7 @@ try {
         status: 'success',
         message: 'NewsMind AI API is running!',
         version: '1.1.0',
-        database: process.env.DATABASE_URL ? 'Postgres/Remote' : 'SQLite (Local/Ephemeral)',
+        database: (process.env.POSTGRES_URL || process.env.DATABASE_URL) ? 'Postgres (Cloud)' : 'SQLite (Local/Ephemeral)',
         realtime: 'Serverless mode (Socket.io disabled)',
         endpoints: {
           summary: '/api/summary',
