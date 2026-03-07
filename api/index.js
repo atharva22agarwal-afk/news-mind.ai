@@ -109,7 +109,7 @@ try {
       res.json({
         status: 'success',
         message: 'NewsMind AI API is running!',
-        version: '1.2.0',
+        version: '1.2.1',
         database: hasPg ? 'Postgres (Cloud)' : 'SQLite (Local/Ephemeral fallback)',
         env: process.env.VERCEL ? 'Vercel' : 'Local',
         endpoints: {
