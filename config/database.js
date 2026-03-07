@@ -25,6 +25,10 @@ if (dbUrl) {
             idle: 10000
         }
     });
+} else if (process.env.VERCEL) {
+    // Vercel Serverless cannot run SQLite reliably. We must enforce Postgres.
+    console.error('❌ CRITICAL: Vercel Postgres is not connected!');
+    throw new Error('DATABASE_URL is missing! Please go to your Vercel Dashboard -> Storage -> Create Postgres Database and connect it to this project.');
 } else {
     // Development: Use local SQLite
     console.log('📂 Using Local SQLite Database');
