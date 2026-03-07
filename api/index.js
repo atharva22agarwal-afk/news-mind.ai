@@ -89,8 +89,11 @@ try {
     }
   });
 
-  // Health Check
-  app.get('/', async (req, res) => {
+  // Serve static files from root
+  app.use(express.static(path.join(__dirname, '..')));
+
+  // Health Check / Status
+  app.get('/api/status', async (req, res) => {
     try {
       await ensureDB();
 
@@ -113,6 +116,11 @@ try {
         error: error.message
       });
     }
+  });
+
+  // Root route serves landing page
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'index.html'));
   });
 
   // 404 Handler
