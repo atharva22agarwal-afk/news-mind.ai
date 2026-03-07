@@ -1,54 +1,280 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join NewsMind.AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,700;1,300&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,700;1,300&family=Inter:wght@400;600;700&display=swap"
+        rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
-        :root { --bg-cream:#FDFCF8; --text-dark:#3D3531; --primary-orange:#E76F51; }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter', sans-serif; background-color:var(--bg-cream); color:var(--text-dark); height:100vh; display:flex; overflow:hidden; }
-        .split-left { width:45%; background-color:var(--text-dark); color:var(--bg-cream); position:relative; display:flex; flex-direction:column; justify-content:space-between; padding:60px; overflow:hidden; }
-        .split-left h1 { font-family:'Merriweather', serif; font-size:3.5rem; line-height:1.1; margin-bottom:20px; z-index:10; position:relative;}
-        .blob-group { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:100%; height:100%; pointer-events:none; }
-        .blob { position:absolute; border-radius:50%; filter:blur(60px); opacity:0.4; animation:float 8s infinite ease-in-out; }
-        .blob-1 { width:300px; height:300px; background:var(--primary-orange); top:10%; right:-50px; }
-        .blob-2 { width:400px; height:400px; background:#E9C46A; bottom:-50px; left:-50px; animation-delay:2s; }
-        @keyframes float { 0%,100% { transform:translate(0,0); } 50% { transform:translate(20px,-20px); } }
-        
-        .split-right { width:55%; display:flex; align-items:center; justify-content:center; background:var(--bg-cream); position:relative; }
-        .auth-container { width:100%; max-width:420px; padding:40px; }
-        .back-btn { position:absolute; top:30px; left:40px; display:flex; align-items:center; gap:8px; color:#999; font-weight:600; text-decoration:none; }
-        .back-btn:hover { color:var(--primary-orange); }
-        .tabs { display:flex; gap:20px; margin-bottom:40px; border-bottom:2px solid #eee; }
-        .tab-btn { padding-bottom:10px; font-family:'Merriweather', serif; font-size:1.5rem; font-weight:700; color:#ccc; cursor:pointer; }
-        .tab-btn.active { color:var(--text-dark); border-bottom:3px solid var(--primary-orange); margin-bottom:-2px; }
-        
-        .form-group { margin-bottom:25px; }
-        .form-group label { display:block; font-size:0.8rem; font-weight:700; text-transform:uppercase; color:var(--primary-orange); margin-bottom:5px; }
-        input { width:100%; padding:10px 0; border:none; border-bottom:2px solid #ddd; background:transparent; font-size:1.1rem; color:var(--text-dark); font-family:'Inter'; }
-        input:focus { outline:none; border-bottom-color:var(--text-dark); }
-        
-        .btn-main { width:100%; padding:15px; background:var(--text-dark); color:white; border:none; font-size:1rem; font-weight:700; border-radius:50px; cursor:pointer; margin-top:10px; display:flex; justify-content:center; gap:10px; align-items:center; }
-        .btn-main:hover { transform:translateY(-2px); background:var(--primary-orange); }
-        .btn-main:disabled { opacity:0.5; cursor:not-allowed; }
-        .form-section { display:none; animation:fadeIn 0.4s ease; }
-        .form-section.active { display:block; }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        
-        .error-message { color: red; font-size: 0.9rem; margin-top: 10px; display: none; }
-        .success-message { color: green; font-size: 0.9rem; margin-top: 10px; display: none; }
-        
-        @media (max-width: 768px) { body { flex-direction:column; overflow-y:auto; } .split-left { width:100%; height:250px; padding:30px; } .split-right { width:100%; padding:40px 20px; } }
+        :root {
+            --bg-cream: #FDFCF8;
+            --text-dark: #3D3531;
+            --primary-orange: #E76F51;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-cream);
+            color: var(--text-dark);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .split-left {
+            width: 45%;
+            background-color: var(--text-dark);
+            color: var(--bg-cream);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 60px;
+            overflow: hidden;
+        }
+
+        .split-left h1 {
+            font-family: 'Merriweather', serif;
+            font-size: 3.5rem;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            z-index: 10;
+            position: relative;
+        }
+
+        .blob-group {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.4;
+            animation: float 8s infinite ease-in-out;
+        }
+
+        .blob-1 {
+            width: 300px;
+            height: 300px;
+            background: var(--primary-orange);
+            top: 10%;
+            right: -50px;
+        }
+
+        .blob-2 {
+            width: 400px;
+            height: 400px;
+            background: #E9C46A;
+            bottom: -50px;
+            left: -50px;
+            animation-delay: 2s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            50% {
+                transform: translate(20px, -20px);
+            }
+        }
+
+        .split-right {
+            width: 55%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-cream);
+            position: relative;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 40px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #999;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            color: var(--primary-orange);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab-btn {
+            padding-bottom: 10px;
+            font-family: 'Merriweather', serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ccc;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            color: var(--text-dark);
+            border-bottom: 3px solid var(--primary-orange);
+            margin-bottom: -2px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--primary-orange);
+            margin-bottom: 5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-bottom: 2px solid #ddd;
+            background: transparent;
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            font-family: 'Inter';
+        }
+
+        input:focus {
+            outline: none;
+            border-bottom-color: var(--text-dark);
+        }
+
+        .btn-main {
+            width: 100%;
+            padding: 15px;
+            background: var(--text-dark);
+            color: white;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-main:hover {
+            transform: translateY(-2px);
+            background: var(--primary-orange);
+        }
+
+        .btn-main:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .form-section {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error-message {
+            color: red;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .success-message {
+            color: green;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+
+            .split-left {
+                width: 100%;
+                height: 250px;
+                padding: 30px;
+            }
+
+            .split-right {
+                width: 100%;
+                padding: 40px 20px;
+            }
+        }
     </style>
 </head>
+
 <body>
     <div class="split-left">
-        <div class="blob-group"><div class="blob blob-1"></div><div class="blob blob-2"></div></div>
-        <div style="font-weight:bold; position:relative; z-index:10; display:flex; align-items:center; gap:8px;"><i class="ph-fill ph-sparkle"></i> NewsMind</div>
-        <div style="position:relative; z-index:10;"><h1>Clarity in a<br>Noisy World.</h1><p>Join the community.</p></div>
+        <div class="blob-group">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+        </div>
+        <div style="font-weight:bold; position:relative; z-index:10; display:flex; align-items:center; gap:8px;"><i
+                class="ph-fill ph-sparkle"></i> NewsMind</div>
+        <div style="position:relative; z-index:10;">
+            <h1>Clarity in a<br>Noisy World.</h1>
+            <p>Join the community.</p>
+        </div>
     </div>
     <div class="split-right">
         <a href="index.html" class="back-btn"><i class="ph ph-arrow-left"></i> Back to Home</a>
@@ -57,7 +283,7 @@
                 <div class="tab-btn active" onclick="switchTab('login')">Log In</div>
                 <div class="tab-btn" onclick="switchTab('register')">Register</div>
             </div>
-            
+
             <!-- LOGIN FORM -->
             <form id="login-form" class="form-section active">
                 <div class="form-group">
@@ -73,7 +299,7 @@
                     Enter Dashboard <i class="ph-bold ph-arrow-right"></i>
                 </button>
             </form>
-            
+
             <!-- REGISTER FORM -->
             <form id="register-form" class="form-section">
                 <div class="form-group">
@@ -92,12 +318,12 @@
             </form>
         </div>
     </div>
-    
+
     <script>
-        const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-            ? 'http://localhost:5000/api' 
+        const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? 'http://localhost:5000/api'
             : '/api';
-        
+
         // Check URL params on load to set initial tab
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -106,20 +332,20 @@
                 switchTab('register');
             }
         });
-        
+
         function switchTab(tab) {
             const login = document.getElementById('login-form');
             const reg = document.getElementById('register-form');
             const tabs = document.querySelectorAll('.tab-btn');
-            
+
             // Clear error messages
             document.getElementById('login-error').style.display = 'none';
             document.getElementById('register-error').style.display = 'none';
             document.getElementById('register-success').style.display = 'none';
-            
+
             tabs.forEach(t => t.classList.remove('active'));
-            
-            if(tab === 'login') {
+
+            if (tab === 'login') {
                 login.classList.add('active');
                 reg.classList.remove('active');
                 tabs[0].classList.add('active');
@@ -129,20 +355,20 @@
                 tabs[1].classList.add('active');
             }
         }
-        
+
         // Login Form Handler
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const email = e.target.querySelector('input[name="email"]').value;
             const errorDiv = document.getElementById('login-error');
             const submitBtn = e.target.querySelector('button[type="submit"]');
-            
+
             // Disable button
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Logging in...';
             errorDiv.style.display = 'none';
-            
+
             try {
                 const response = await fetch(`${API_BASE}/auth/login`, {
                     method: 'POST',
@@ -152,15 +378,15 @@
                         name: email.split('@')[0]
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // Save user info to localStorage
                     localStorage.setItem('userId', data.data.userId);
                     localStorage.setItem('userName', data.data.name);
                     localStorage.setItem('userEmail', data.data.email);
-                    
+
                     // Redirect to dashboard
                     window.location.href = 'dashboard.html';
                 } else {
@@ -170,7 +396,7 @@
                 // Provide more helpful error messages
                 let errorMessage = error.message;
                 if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    errorMessage = 'Cannot connect to server. Please ensure the backend is running on port 5000.';
+                    errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
                 }
                 errorDiv.textContent = errorMessage;
                 errorDiv.style.display = 'block';
@@ -178,23 +404,23 @@
                 submitBtn.innerHTML = 'Enter Dashboard <i class="ph-bold ph-arrow-right"></i>';
             }
         });
-        
+
         // Register Form Handler
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const name = e.target.querySelector('input[name="name"]').value;
             const email = e.target.querySelector('input[name="email"]').value;
             const errorDiv = document.getElementById('register-error');
             const successDiv = document.getElementById('register-success');
             const submitBtn = e.target.querySelector('button[type="submit"]');
-            
+
             // Disable button
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Creating Account...';
             errorDiv.style.display = 'none';
             successDiv.style.display = 'none';
-            
+
             try {
                 const response = await fetch(`${API_BASE}/auth/login`, {
                     method: 'POST',
@@ -204,19 +430,19 @@
                         name: name
                     })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // Save user info to localStorage
                     localStorage.setItem('userId', data.data.userId);
                     localStorage.setItem('userName', data.data.name);
                     localStorage.setItem('userEmail', data.data.email);
-                    
+
                     // Show success message
                     successDiv.textContent = 'Account created! Redirecting...';
                     successDiv.style.display = 'block';
-                    
+
                     // Redirect to dashboard after 1 second
                     setTimeout(() => {
                         window.location.href = 'dashboard.html';
@@ -228,7 +454,7 @@
                 // Provide more helpful error messages
                 let errorMessage = error.message;
                 if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    errorMessage = 'Cannot connect to server. Please ensure the backend is running on port 5000.';
+                    errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
                 }
                 errorDiv.textContent = errorMessage;
                 errorDiv.style.display = 'block';
@@ -238,4 +464,5 @@
         });
     </script>
 </body>
+
 </html>
