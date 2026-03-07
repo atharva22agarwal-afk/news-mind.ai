@@ -3,518 +3,568 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NewsMind Intelligence OS</title>
+    <title>NewsMind.AI - Clarity in a Noisy World</title>
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,700;1,300&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="api-config.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- Add Marked.js for nice Comparison Tables -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <style>
-        :root { 
-            --bg-cream: #FDFCF8; 
-            --text-dark: #3D3531; 
-            --primary-orange: #E76F51; 
-            --accent-yellow: #E9C46A; 
-            --surface-white: #FFFFFF; 
-            --gray-light: #f3f4f6;
-            --shadow-soft: 0 10px 40px rgba(0,0,0,0.08);
-        }
-        * { margin:0; padding:0; box-sizing:border-box; outline: none; }
-        body { font-family:'Inter',sans-serif; background-color:var(--bg-cream); color:var(--text-dark); height:100vh; overflow:hidden; display:flex; flex-direction:column; }
-        h1,h2,h3,h4 { font-family:'Merriweather',serif; }
-        a { text-decoration: none; color: inherit; }
-        
-        /* Navigation */
-        nav { height:60px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; justify-content:space-between; padding:0 25px; background:rgba(253,252,248,0.9); backdrop-filter:blur(10px); z-index: 100;}
-        .logo { font-weight:800; display:flex; align-items:center; gap:8px; font-size:1.1rem; cursor:pointer; color: var(--primary-orange); }
-        .user-profile { display:flex; align-items:center; gap:10px; padding:5px 10px; border-radius:20px; background:#fff; border: 1px solid #eee; cursor:pointer; position:relative; }
-        .avatar { width:32px; height:32px; background:var(--text-dark); border-radius:50%; color:white; display:flex; align-items:center; justify-content:center; font-weight:700; }
-        .logout-menu { position:absolute; top:50px; right:0; background:white; border:1px solid #eee; border-radius:8px; padding:10px; display:none; box-shadow:0 5px 20px rgba(0,0,0,0.1); width: 120px;}
-        .logout-menu.active { display:block; }
-        .logout-btn { padding:8px 15px; color:red; cursor:pointer; font-size:0.9rem; border-radius: 4px; }
-        .logout-btn:hover { background:#ffe6e6; }
-        
-        /* Layout */
-        .app-container { display:flex; height:calc(100vh - 60px); gap:15px; padding:15px; }
-        
-        /* Sidebar */
-        .sidebar { width:260px; background:var(--surface-white); border-radius:16px; border:1px solid rgba(0,0,0,0.05); display:flex; flex-direction:column; padding:20px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
-        .history-item { padding:12px; border-radius:12px; margin-bottom:8px; cursor:pointer; display:flex; gap:10px; align-items:center; transition:0.2s; border: 1px solid transparent; }
-        .history-item:hover { background:#FFF8F0; border-color: #eee; }
-        .history-item.active { background:var(--text-dark); color:white; }
-        .history-item.active .icon-bg { background:rgba(255,255,255,0.2); color:white; }
-        .icon-bg { width:30px; height:30px; background:#FFF4E5; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--primary-orange); flex-shrink: 0; }
-        .time-text { font-size:0.75rem; color:#bbb; margin-left: auto;}
-        
-        /* Main Content Area */
-        .main-content { flex:1; position:relative; background:var(--surface-white); border-radius:20px; border:1px solid #eee; overflow:hidden; display:flex; flex-direction:column; }
-        .main-content.drag-over { border: 2px dashed var(--primary-orange); background: rgba(231, 111, 81, 0.03); }
-        
-        /* Scrollable Area */
-        .content-scroll { 
-            padding: 40px 80px 100px;
-            overflow-y: auto; 
-            height: 100%;
-            width: 100%;
+        :root {
+            --bg-cream: #FDFCF8;
+            --text-dark: #1a1a1a;
+            --primary-orange: #E76F51;
+            --secondary-blue: #2A9D8F;
+            --glass-border: rgba(255, 255, 255, 0.5);
         }
 
-        /* ===== OMNI-BOX STYLES ===== */
-        .hero-section {
-            max-width: 800px;
-            margin: 60px auto 40px;
-            text-align: center;
-        }
-
-        .omni-wrapper {
-            background: #fff;
-            border-radius: 16px;
-            box-shadow: var(--shadow-soft);
-            border: 1px solid #eaeaea;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            text-align: left;
-        }
-
-        .omni-wrapper:focus-within {
-            box-shadow: 0 15px 50px rgba(231, 111, 81, 0.15);
-            border-color: rgba(231, 111, 81, 0.3);
-        }
-
-        .omni-tabs {
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: default; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-cream);
+            color: var(--text-dark);
+            overflow-x: hidden;
+            height: 100vh;
             display: flex;
-            background: #FAFAFA;
-            border-bottom: 1px solid #eee;
+            flex-direction: column;
         }
 
-        .omni-tab {
-            padding: 15px 25px;
+        /* --- MOUSE SPOTLIGHT --- */
+        .cursor-glow {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(231, 111, 81, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
+            position: fixed;
+            top: 0; left: 0;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
+            transition: transform 0.1s ease-out;
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 60px;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+            background: rgba(253, 252, 248, 0.6);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(0,0,0,0.02);
+            animation: slideDown 0.8s ease-out;
+        }
+
+        .logo { 
+            font-weight: 800; font-size: 1.3rem; display: flex; align-items: center; gap: 8px; color: var(--text-dark); 
             cursor: pointer;
+        }
+        .logo i { color: var(--primary-orange); font-size: 1.6rem; animation: spin 10s infinite linear; }
+
+        .auth-buttons { display: flex; gap: 15px; align-items: center; }
+        
+        /* --- INTERACTIVE BUTTONS --- */
+        .btn {
+            padding: 12px 28px;
+            border-radius: 50px;
             font-weight: 600;
-            color: #666;
             font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-login { background: transparent; border: 1px solid #ddd; color: #555; }
+        .btn-login:hover { border-color: var(--text-dark); color: var(--text-dark); background: white; }
+
+        .btn-primary {
+            background: var(--text-dark);
+            color: white;
+            border: 1px solid var(--text-dark);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        /* Button Shine Effect */
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+            z-index: -1;
+        }
+        .btn-primary:hover::after { left: 100%; }
+        .btn-primary:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 30px rgba(231, 111, 81, 0.25);
+            background: var(--primary-orange);
+            border-color: var(--primary-orange);
+        }
+
+        /* --- HERO SECTION --- */
+        .hero {
+            flex: 1;
             display: flex;
             align-items: center;
+            padding: 0 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-content { flex: 1.1; max-width: 650px; z-index: 2; opacity: 0; animation: fadeUp 1s ease-out 0.2s forwards; }
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
             gap: 8px;
-            transition: 0.2s;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(5px);
+            border: 1px solid #eee;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--primary-orange);
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            transition: transform 0.3s;
         }
-        .omni-tab:hover { background: #f0f0f0; }
-        .omni-tab.active { background: white; color: var(--primary-orange); border-top: 2px solid var(--primary-orange); }
+        .badge:hover { transform: scale(1.05); cursor: default; }
 
-        .omni-content { padding: 20px; }
+        h1 {
+            font-family: 'Merriweather', serif;
+            font-size: 4.2rem;
+            line-height: 1.15;
+            margin-bottom: 25px;
+            color: var(--text-dark);
+            letter-spacing: -1.5px;
+        }
+
+        /* Typewriter Cursor */
+        .typewriter-cursor {
+            display: inline-block;
+            width: 4px;
+            background-color: var(--primary-orange);
+            animation: blink 1s infinite;
+        }
+
+        .dynamic-text {
+            background: linear-gradient(120deg, var(--primary-orange), #DD2476);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+        }
+
+        p.subtitle {
+            font-size: 1.25rem;
+            line-height: 1.7;
+            color: #666;
+            margin-bottom: 45px;
+            max-width: 90%;
+            font-weight: 400;
+        }
+
+        .hero-btns { display: flex; gap: 20px; }
+        .hero-btns .btn-primary { padding: 18px 40px; font-size: 1.1rem; }
+
+        /* --- 3D VISUAL --- */
+        .hero-visual {
+            flex: 1;
+            position: relative;
+            height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1200px;
+            opacity: 0; 
+            animation: fadeLeft 1s ease-out 0.5s forwards;
+        }
+
+        .app-card {
+            width: 580px;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid white;
+            border-radius: 30px;
+            padding: 30px;
+            box-shadow: 
+                0 30px 60px -10px rgba(0, 0, 0, 0.1),
+                inset 0 0 0 1px rgba(255,255,255,0.5);
+            transform: rotateY(-12deg) rotateX(5deg);
+            transition: all 0.1s ease-out;
+            position: relative;
+        }
+
+        .app-card:hover {
+            box-shadow: 0 40px 80px -10px rgba(231, 111, 81, 0.15);
+        }
+
+        /* Abstract UI Lines */
+        .skeleton-line { height: 10px; background: #eef0f2; border-radius: 6px; margin-bottom: 12px; }
+        .w-100 { width: 100%; } .w-80 { width: 80%; } .w-60 { width: 60%; } .w-40 { width: 40%; }
+
+        /* Floating elements */
+        .float-card {
+            position: absolute;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            border: 1px solid white;
+            animation: float-card 6s infinite ease-in-out;
+            z-index: 10;
+            transition: transform 0.3s;
+        }
+        .float-card:hover { transform: scale(1.1) !important; cursor: pointer; }
         
-        .view-section { display: none; animation: fadeIn 0.3s; }
-        .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .fc-1 { top: 5%; right: -20px; animation-delay: 0s; }
+        .fc-2 { bottom: 20%; left: -40px; animation-delay: 2s; }
 
-        /* Summary Input View */
-        textarea.modern-input {
+        /* --- ANIMATIONS --- */
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeLeft { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes float-card { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* --- TICKER --- */
+        .ticker-wrap {
+            position: absolute;
+            bottom: 0;
             width: 100%;
-            min-height: 100px;
-            border: none;
-            resize: none;
-            font-family: 'Inter', sans-serif;
-            font-size: 1.1rem;
-            color: #333;
-            background: transparent;
-            margin-bottom: 15px;
+            overflow: hidden;
+            height: 60px;
+            background: #fff;
+            border-top: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            z-index: 50;
         }
-        textarea.modern-input::placeholder { color: #aaa; }
 
-        .action-bar { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f5f5f5; padding-top: 15px; }
+        .ticker {
+            display: inline-block;
+            animation: marquee 40s linear infinite;
+        }
+
+        .ticker-item {
+            display: inline-block;
+            padding: 0 50px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #888;
+            letter-spacing: 0.5px;
+            transition: 0.3s;
+        }
+        .ticker-item:hover { color: var(--primary-orange); }
         
-        .attach-btn { display: flex; align-items: center; gap: 6px; color: #666; cursor: pointer; font-size: 0.9rem; padding: 6px 12px; border-radius: 6px; transition: 0.2s; }
-        .attach-btn:hover { background: #f3f3f3; color: var(--text-dark); }
-        
-        .run-btn {
+        @keyframes marquee { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
+
+        @media (max-width: 1024px) {
+            h1 { font-size: 3.5rem; }
+            .hero-visual { display: none; }
+            .hero { text-align: center; justify-content: center; }
+            .hero-btns { justify-content: center; }
+            .cursor-glow { display: none; } /* Disable heavy effect on tablets */
+        }
+
+        /* --- DEMO MODAL --- */
+        .demo-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .demo-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+        .demo-content {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .demo-modal.active .demo-content {
+            transform: scale(1);
+        }
+        .demo-content h3 {
+            font-family: 'Merriweather', serif;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: var(--text-dark);
+        }
+        .demo-content p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        .demo-btn {
             background: var(--primary-orange);
             color: white;
             border: none;
-            padding: 10px 24px;
-            border-radius: 30px;
+            padding: 14px 32px;
+            border-radius: 50px;
             font-weight: 600;
             cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .demo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(231, 111, 81, 0.3);
+        }
+        .close-demo {
+            position: absolute;
+            top: 20px; right: 20px;
+            width: 40px; height: 40px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #666;
             display: flex;
             align-items: center;
-            gap: 8px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            justify-content: center;
+            transition: all 0.3s;
         }
-        .run-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(231, 111, 81, 0.3); }
-
-        /* Compare Input View */
-        .compare-inputs { display: flex; flex-direction: column; gap: 15px; }
-        .url-row { display: flex; gap: 10px; align-items: center; }
-        .badge { background: #333; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; min-width: 80px; text-align: center; }
-        .badge.a { background: var(--primary-orange); }
-        .badge.b { background: #2A9D8F; }
-        .url-input { flex: 1; padding: 12px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; }
-        .url-input:focus { border-color: var(--primary-orange); background: white; }
-
-        /* === RESULT STYLES === */
-        .result-container { display: none; margin-top: 30px; animation: slideUp 0.5s; }
-        @keyframes slideUp { from { opacity: 0; margin-top: 50px; } to { opacity: 1; margin-top: 30px; } }
-
-        .result-header { border-left: 4px solid var(--primary-orange); padding-left: 20px; margin-bottom: 30px; }
-        .result-meta { font-size: 0.9rem; color: #777; margin-top: 5px; }
-        
-        /* Markdown Content Styling */
-        .markdown-body { font-size: 1.1rem; line-height: 1.8; color: #2d2d2d; }
-        .markdown-body h1, .markdown-body h2 { margin-top: 1.5em; margin-bottom: 0.5em; }
-        .markdown-body p { margin-bottom: 1em; }
-        .markdown-body ul { padding-left: 20px; margin-bottom: 1em; }
-        .markdown-body li { margin-bottom: 0.5em; }
-
-        /* Comparison Tables */
-        .comparison-table table { width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
-        .comparison-table th { background: #3D3531; color: white; padding: 15px; text-align: left; font-weight: 600; }
-        .comparison-table td { padding: 15px; border-bottom: 1px solid #eee; vertical-align: top; }
-        .comparison-table tr:nth-child(even) { background: #fafafa; }
-        .comparison-table tr:hover { background: #fdf6f3; }
-
-        /* Chat Sidebar */
-        .social-sidebar { width:300px; background:var(--surface-white); border-left:1px solid rgba(0,0,0,0.05); padding:20px; display:flex; flex-direction:column; }
-        .chat-area { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:15px; padding-bottom: 10px;}
-        .chat-bubble { padding:12px 15px; border-radius:12px; font-size:0.9rem; max-width:90%; line-height: 1.5; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
-        .ai-msg { background:white; border: 1px solid #eee; border-left:3px solid var(--primary-orange); align-self:flex-start; }
-        .user-msg { background: var(--text-dark); color: white; align-self:flex-end; }
-        .chat-input-wrapper { display:flex; gap:10px; padding-top: 15px; border-top: 1px solid #eee;}
-        .chat-input { flex: 1; padding: 10px; border: 1px solid #eee; border-radius: 20px; outline: none; transition: 0.2s; }
-        .chat-input:focus { border-color: var(--primary-orange); }
-
-        @media (max-width:1000px) { .sidebar { display:none; } .social-sidebar { display: none;} }
+        .close-demo:hover {
+            background: #f0f0f0;
+            color: var(--text-dark);
+        }
     </style>
 </head>
 <body>
+
+    <!-- Mouse Spotlight -->
+    <div class="cursor-glow" id="cursor-glow"></div>
+
+    <!-- Navigation -->
     <nav>
-        <a href="index.html" class="logo"><i class="ph-fill ph-brain"></i> NewsMind OS</a>
-        <div class="user-profile" onclick="toggleLogoutMenu()">
-            <span id="user-name-display" style="font-size: 0.9rem; font-weight: 600;">Loading...</span>
-            <div class="avatar" id="user-avatar">?</div>
-            <div class="logout-menu" id="logout-menu">
-                <div class="logout-btn" onclick="handleLogout()">Logout</div>
-            </div>
+        <div class="logo" onclick="window.location.href='index.html'">
+            <i class="ph-fill ph-asterisk"></i> NewsMind
+        </div>
+        <div class="auth-buttons">
+            <a href="login.html" class="btn btn-login">Log In</a>
+            <a href="login.html?tab=register" class="btn btn-primary">Start Free Trial</a>
         </div>
     </nav>
 
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <h3 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#999; margin-bottom:15px;">Library</h3>
-            <button onclick="resetDashboard()" style="width:100%; padding:10px; margin-bottom: 15px; background:white; border: 1px solid #ddd; border-radius:8px; cursor:pointer; font-weight:600; color: #333; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="ph ph-plus"></i> New Research
-            </button>
-            <div id="history-container" style="overflow-y: auto; flex:1;"></div>
-        </aside>
-
-        <!-- Main Workspace -->
-        <main class="main-content">
-            <div class="content-scroll" id="scrollArea">
-                
-                <!-- HERO & INPUT SECTION -->
-                <div id="heroSection" class="hero-section">
-                    <h1 style="font-size: 2.5rem; color: var(--text-dark); margin-bottom: 10px;">News Intelligence OS</h1>
-                    <p style="color: #888; margin-bottom: 30px;">Compare sources, analyze biases, and summarize documents instantly.</p>
-                    
-                    <!-- THE NEW OMNI-BOX -->
-                    <div class="omni-wrapper">
-                        <div class="omni-tabs">
-                            <div class="omni-tab active" onclick="switchTab('summary')">
-                                <i class="ph ph-lightning"></i> Smart Brief
-                            </div>
-                            <div class="omni-tab" onclick="switchTab('compare')">
-                                <i class="ph ph-scales"></i> Deep Comparison
-                            </div>
-                        </div>
-
-                        <div class="omni-content">
-                            <!-- TAB 1: SUMMARY -->
-                            <div id="view-summary" class="view-section active">
-                                <textarea id="mainInput" class="modern-input" placeholder="Paste a URL, enter a topic, or describe what you want to learn..."></textarea>
-                                
-                                <div class="action-bar">
-                                    <div>
-                                        <input type="file" id="fileUpload" hidden>
-                                        <label for="fileUpload" class="attach-btn" title="Upload Document">
-                                            <i class="ph ph-paperclip"></i> <span id="fileName">Attach PDF/Doc</span>
-                                        </label>
-                                    </div>
-                                    <button onclick="handleSmartSubmit()" class="run-btn">
-                                        Analyze <i class="ph-bold ph-arrow-right"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- TAB 2: COMPARISON -->
-                            <div id="view-compare" class="view-section">
-                                <div class="compare-inputs">
-                                    <div class="url-row">
-                                        <span class="badge a">Source A</span>
-                                        <input type="text" id="urlA" class="url-input" placeholder="Paste link (e.g. CNN Article)">
-                                    </div>
-                                    <div class="url-row">
-                                        <span class="badge b">Source B</span>
-                                        <input type="text" id="urlB" class="url-input" placeholder="Paste link (e.g. Fox News Article)">
-                                    </div>
-                                </div>
-                                <div class="action-bar" style="justify-content: flex-end;">
-                                    <button onclick="runComparison()" class="run-btn" style="background: #2A9D8F;">
-                                        Compare Sources <i class="ph-bold ph-scales"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- LOADING INDICATOR -->
-                <div id="loadingState" style="display:none; text-align: center; padding: 40px;">
-                    <i class="ph ph-spinner ph-spin" style="font-size: 2rem; color: var(--primary-orange);"></i>
-                    <p style="margin-top: 15px; color: #666;" id="loadingText">Processing intelligence...</p>
-                </div>
-
-                <!-- RESULT CONTAINER -->
-                <div id="resultContainer" class="result-container">
-                    <div class="doc-header result-header">
-                        <span style="background:var(--accent-yellow); font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform: uppercase;" id="resultType">INTELLIGENCE REPORT</span>
-                        <h1 style="font-size:2rem; margin:15px 0 5px;" id="resultTitle">Analysis Result</h1>
-                        <p class="result-meta" id="resultMeta">Generated by AI • 1 min read</p>
-                    </div>
-
-                    <!-- Where the content goes -->
-                    <div id="contentOutput" class="markdown-body"></div>
-                </div>
-
-            </div>
-        </main>
-
-        <!-- Right Social Bar -->
-        <aside class="social-sidebar">
-            <div style="background:#f9f9f9; padding:15px; border-radius:12px; border:1px solid #eee; margin-bottom:20px;">
-                <h4 style="font-size:0.9rem; margin-bottom:5px;">AI Moderator</h4>
-                <div style="font-size:0.75rem; color:#666; display:flex; align-items:center; gap:5px;">
-                    <span style="width:8px; height:8px; background:#4ADE80; border-radius:50%;"></span> Online
-                </div>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="badge">
+                <span style="width: 8px; height: 8px; background: #4ADE80; border-radius: 50%;"></span>
+                Comparison Engine v2.0 Live
             </div>
             
-            <div class="chat-area" id="chatFeed">
-                <div class="chat-bubble ai-msg"><strong>AI:</strong> Ready to discuss the news when you are.</div>
-            </div>
-
-            <div class="chat-input-wrapper">
-                <input type="text" id="chatInput" class="chat-input" placeholder="Ask a question...">
-                <button onclick="sendMsg()" style="background:none; border:none; color:var(--primary-orange); cursor:pointer;">
-                    <i class="ph-fill ph-paper-plane-right" style="font-size:1.2rem;"></i>
+            <h1>
+                Cut through the <br>
+                <span class="dynamic-text" id="typewriter">Noise</span><span class="typewriter-cursor">|</span>
+            </h1>
+            
+            <p class="subtitle">
+                The world doesn't need more news. It needs clarity. 
+                Use AI to summarize articles, compare sources, and spot bias in seconds.
+            </p>
+            
+            <div class="hero-btns">
+                <a href="login.html?tab=register" class="btn btn-primary">
+                    Start Your Analysis
+                </a>
+                <button class="btn btn-login" style="padding-left: 20px; padding-right: 20px;" onclick="openDemo()">
+                    <i class="ph-fill ph-play" style="font-size:0.9rem;"></i> Demo
                 </button>
             </div>
-        </aside>
+        </div>
+
+        <!-- 3D Interactive Visual -->
+        <div class="hero-visual">
+            <div class="app-card" id="tilt-card">
+                <!-- Mock Header -->
+                <div style="display:flex; justify-content:space-between; margin-bottom:25px; align-items:center;">
+                    <div style="display:flex; gap:8px;">
+                        <div style="width:12px; height:12px; border-radius:50%; background:#FF5F56;"></div>
+                        <div style="width:12px; height:12px; border-radius:50%; background:#FFBD2E;"></div>
+                        <div style="width:12px; height:12px; border-radius:50%; background:#27C93F;"></div>
+                    </div>
+                    <div style="font-size:0.7rem; font-weight:700; color:#ccc; letter-spacing:1px;">ANALYSIS MODE</div>
+                </div>
+
+                <!-- Mock Content -->
+                <h3 style="font-size: 1.8rem; margin-bottom: 15px; font-family: 'Merriweather', serif;">Global Market Shift</h3>
+                <div class="skeleton-line w-100"></div>
+                <div class="skeleton-line w-80"></div>
+                <div class="skeleton-line w-100"></div>
+                <div class="skeleton-line w-60"></div>
+                
+                <div style="margin-top: 25px; background: #FFF4E5; padding: 20px; border-radius: 12px; border-left: 4px solid #E76F51; display:flex; gap:15px; align-items:start;">
+                    <i class="ph-fill ph-sparkle" style="color: #E76F51; font-size: 1.2rem; margin-top:2px;"></i>
+                    <div>
+                        <div style="font-weight: 800; color: #E76F51; font-size: 0.8rem; margin-bottom: 5px; text-transform:uppercase;">AI Insight</div>
+                        <div style="font-size: 0.95rem; line-height: 1.6; color: #444;">CNN focuses on regulatory hurdles, whereas Fox Business attributes the shift to recent tax policy changes.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Badges -->
+            <div class="float-card fc-1">
+                <div style="width: 32px; height: 32px; background: #E76F51; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="ph-bold ph-warning"></i>
+                </div>
+                <div>
+                    <div style="font-size: 0.65rem; color: #999; text-transform: uppercase;">Detection</div>
+                    <div style="color: #E76F51;">High Bias</div>
+                </div>
+            </div>
+
+            <div class="float-card fc-2">
+                <div style="width: 32px; height: 32px; background: #2A9D8F; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+                    <i class="ph-bold ph-check"></i>
+                </div>
+                <div>
+                    <div style="font-size: 0.65rem; color: #999; text-transform: uppercase;">Status</div>
+                    <div style="color: #2A9D8F;">Verified</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Infinite Feature Ticker -->
+    <div class="ticker-wrap">
+        <div class="ticker">
+            <div class="ticker-item"><i class="ph-fill ph-lightning"></i> Smart Summaries</div>
+            <div class="ticker-item"><i class="ph-fill ph-scales"></i> Source Comparison</div>
+            <div class="ticker-item"><i class="ph-fill ph-detective"></i> Bias Detection</div>
+            <div class="ticker-item"><i class="ph-fill ph-file-pdf"></i> PDF Analysis</div>
+            <div class="ticker-item"><i class="ph-fill ph-chats"></i> AI Moderator</div>
+            <!-- Duplicate -->
+            <div class="ticker-item"><i class="ph-fill ph-lightning"></i> Smart Summaries</div>
+            <div class="ticker-item"><i class="ph-fill ph-scales"></i> Source Comparison</div>
+            <div class="ticker-item"><i class="ph-fill ph-detective"></i> Bias Detection</div>
+            <div class="ticker-item"><i class="ph-fill ph-file-pdf"></i> PDF Analysis</div>
+            <div class="ticker-item"><i class="ph-fill ph-chats"></i> AI Moderator</div>
+        </div>
+    </div>
+
+    <!-- Demo Modal -->
+    <div class="demo-modal" id="demoModal">
+        <button class="close-demo" onclick="closeDemo()">
+            <i class="ph-bold ph-x"></i>
+        </button>
+        <div class="demo-content">
+            <i class="ph-fill ph-sparkle" style="font-size: 3rem; color: var(--primary-orange); margin-bottom: 20px;"></i>
+            <h3>Try NewsMind.AI</h3>
+            <p>Experience the power of AI-driven news analysis. Get instant summaries, compare multiple sources, and detect bias with our intelligent comparison engine.</p>
+            <a href="login.html?tab=register" class="demo-btn">Get Started Free</a>
+        </div>
     </div>
 
     <script>
-    // --- AUTHENTICATION CHECK ---
-    const userId = localStorage.getItem('userId');
-    const userName = localStorage.getItem('userName');
-    
-    const displayName = userName || 'Guest Analyst';
-    document.getElementById('user-name-display').textContent = displayName;
-    document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
+        // --- 1. Typewriter Effect ---
+        const words = ["Noise.", "Bias.", "Hype.", "Clutter."];
+        let wordIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        const typeSpeed = 150;
+        const deleteSpeed = 100;
+        const pauseTime = 2000;
+        const typeTarget = document.getElementById('typewriter');
 
-    // --- VARIABLES ---
-    let currentSummaryId = null;
-    let selectedFile = null;
-
-    // --- OMNI-BOX UI LOGIC ---
-    function switchTab(mode) {
-        document.querySelectorAll('.omni-tab').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-        
-        if(mode === 'summary') {
-            document.querySelectorAll('.omni-tab')[0].classList.add('active');
-            document.getElementById('view-summary').classList.add('active');
-        } else {
-            document.querySelectorAll('.omni-tab')[1].classList.add('active');
-            document.getElementById('view-compare').classList.add('active');
-        }
-    }
-
-    function toggleLogoutMenu() {
-        document.getElementById('logout-menu').classList.toggle('active');
-    }
-
-    function handleLogout() {
-        localStorage.clear();
-        window.location.href = 'login.html';
-    }
-
-    function resetDashboard() {
-        document.getElementById('heroSection').style.display = 'block';
-        document.getElementById('resultContainer').style.display = 'none';
-        document.getElementById('mainInput').value = '';
-        document.getElementById('urlA').value = '';
-        document.getElementById('urlB').value = '';
-    }
-
-    // --- FILE HANDLING ---
-    document.getElementById('fileUpload').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            selectedFile = file;
-            document.getElementById('fileName').innerText = file.name;
-            document.getElementById('mainInput').value = `[Document Attached: ${file.name}]`;
-        }
-    });
-
-    // --- MAIN API LOGIC (Tab 1) ---
-    async function handleSmartSubmit() {
-        const input = document.getElementById('mainInput').value.trim();
-        if(!input && !selectedFile) return;
-
-        document.getElementById('heroSection').style.display = 'none';
-        showLoading(true, "Scanning documents and running analysis...");
-        document.getElementById('resultContainer').style.display = 'none';
-
-        try {
-            // Case A: File
-            if (selectedFile) {
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                formData.append('userId', userId || 'guest');
-                const res = await fetch(`${API_BASE_URL}/summary/file`, { method: 'POST', body: formData });
-                const data = await res.json();
-                renderSummary(data.data);
-                return;
-            }
-
-            // Case B: URL
-            if (input.startsWith('http')) {
-                const res = await fetch(`${API_BASE_URL}/summary/url`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ url: input, userId: userId || 'guest' })
-                });
-                const data = await res.json();
-                if(data.success) renderSummary(data.data || data.summary);
-                else throw new Error(data.error);
-                return;
-            } 
+        function type() {
+            const currentWord = words[wordIndex];
             
-            // Case C: Text / Topic
-            const res = await fetch(`${API_BASE_URL}/summary/text`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ text: input, userId: userId || 'guest' })
-            });
-            const data = await res.json();
-            if(data.success) renderSummary(data.data || data.summary);
-            else throw new Error(data.error);
-
-        } catch (error) {
-            alert("Error: " + error.message);
-            resetDashboard();
-        } finally {
-            showLoading(false);
-            selectedFile = null;
-        }
-    }
-
-    // --- COMPARISON LOGIC (Tab 2) ---
-    async function runComparison() {
-        const url1 = document.getElementById('urlA').value;
-        const url2 = document.getElementById('urlB').value;
-
-        if(!url1 || !url2) { alert("Please provide two URLs."); return; }
-
-        document.getElementById('heroSection').style.display = 'none';
-        showLoading(true, "Intercepting sources & resolving conflicts...");
-        document.getElementById('resultContainer').style.display = 'none';
-
-        try {
-            const res = await fetch(`${API_BASE_URL}/tools/compare`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ url1, url2 })
-            });
-            const data = await res.json();
-
-            if(data.success) {
-                renderComparison(data.data);
+            if (isDeleting) {
+                typeTarget.textContent = currentWord.substring(0, charIndex - 1);
+                charIndex--;
             } else {
-                throw new Error(data.error);
+                typeTarget.textContent = currentWord.substring(0, charIndex + 1);
+                charIndex++;
             }
-        } catch (e) {
-            document.getElementById('contentOutput').innerHTML = `<p style="color:red">Failed: ${e.message}</p>`;
-            document.getElementById('resultContainer').style.display = 'block';
-        } finally {
-            showLoading(false);
-        }
-    }
 
-    // --- RENDERING FUNCTIONS ---
-
-    function showLoading(show, text) {
-        const loader = document.getElementById('loadingState');
-        if(show) {
-            loader.style.display = 'block';
-            document.getElementById('loadingText').innerText = text;
-        } else {
-            loader.style.display = 'none';
-        }
-    }
-
-    function renderSummary(data) {
-        document.getElementById('resultType').innerText = "Smart Summary";
-        document.getElementById('resultTitle').innerText = data.title || "Document Analysis";
-        
-        let htmlContent = `<div class="summary-section"><p>${data.summary}</p></div>`;
-        
-        if (data.keyPoints) {
-            htmlContent += `<h3>Key Intelligence Points</h3><ul>`;
-            if (typeof data.keyPoints === 'string') {
-                 htmlContent += `<li>${data.keyPoints}</li>`;
-            } else {
-                 data.keyPoints.forEach(pt => htmlContent += `<li>${pt}</li>`);
+            if (!isDeleting && charIndex === currentWord.length) {
+                setTimeout(() => isDeleting = true, pauseTime);
+            } else if (isDeleting && charIndex === 0) {
+                isDeleting = false;
+                wordIndex = (wordIndex + 1) % words.length;
             }
-            htmlContent += `</ul>`;
+
+            const speed = isDeleting ? deleteSpeed : typeSpeed;
+            setTimeout(type, speed);
+        }
+        
+        // Start typing on load
+        setTimeout(type, 1000);
+
+
+        // --- 2. Mouse Spotlight & 3D Tilt ---
+        const glow = document.getElementById('cursor-glow');
+        const card = document.getElementById('tilt-card');
+
+        document.addEventListener('mousemove', (e) => {
+            // Move Glow
+            glow.style.left = e.clientX + 'px';
+            glow.style.top = e.clientY + 'px';
+
+            // Parallax Tilt for Card
+            if(window.innerWidth > 1024) {
+                const xAxis = (window.innerWidth / 2 - e.pageX) / 30;
+                const yAxis = (window.innerHeight / 2 - e.pageY) / 30;
+                card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+            }
+        });
+
+        // --- 3. Demo Modal Functions ---
+        function openDemo() {
+            document.getElementById('demoModal').classList.add('active');
         }
 
-        document.getElementById('contentOutput').innerHTML = htmlContent;
-        document.getElementById('resultContainer').style.display = 'block';
-        document.getElementById('scrollArea').scrollTop = 0;
-    }
+        function closeDemo() {
+            document.getElementById('demoModal').classList.remove('active');
+        }
 
-    function renderComparison(markdownText) {
-        document.getElementById('resultType').innerText = "War Room Report";
-        document.getElementById('resultTitle').innerText = "Source Comparison Analysis";
-        document.getElementById('resultMeta').innerText = "Deep Intel • 2 Sources Detected";
-        
-        document.getElementById('contentOutput').classList.add('comparison-table');
-        document.getElementById('contentOutput').innerHTML = marked.parse(markdownText);
-        
-        document.getElementById('resultContainer').style.display = 'block';
-    }
+        // Close modal when clicking outside
+        document.getElementById('demoModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDemo();
+            }
+        });
 
-    // --- SIMPLE CHAT LOGIC ---
-    function sendMsg() {
-        const input = document.getElementById('chatInput');
-        const txt = input.value.trim();
-        if(!txt) return;
-
-        const chatFeed = document.getElementById('chatFeed');
-        const uMsg = document.createElement('div');
-        uMsg.className = 'chat-bubble user-msg';
-        uMsg.innerText = txt;
-        chatFeed.appendChild(uMsg);
-        
-        input.value = '';
-        chatFeed.scrollTop = chatFeed.scrollHeight;
-
-        setTimeout(() => {
-            const aMsg = document.createElement('div');
-            aMsg.className = 'chat-bubble ai-msg';
-            aMsg.innerHTML = "<strong>AI:</strong> That's an interesting angle. Based on the analysis above, notice how the tone shifts regarding that specific point. What else did you notice?";
-            chatFeed.appendChild(aMsg);
-            chatFeed.scrollTop = chatFeed.scrollHeight;
-        }, 1000);
-    }
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDemo();
+            }
+        });
     </script>
 </body>
 </html>

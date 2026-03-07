@@ -96,6 +96,15 @@
     <script>
         const API_BASE = 'http://localhost:5000/api';
         
+        // Check URL params on load to set initial tab
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam === 'register') {
+                switchTab('register');
+            }
+        });
+        
         function switchTab(tab) {
             const login = document.getElementById('login-form');
             const reg = document.getElementById('register-form');
