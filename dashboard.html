@@ -1,803 +1,887 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NewsMind Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,700;1,300&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>NewsMind War Room</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <script src="api-config.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 
     <style>
-        :root { --bg-cream: #FDFCF8; --text-dark: #3D3531; --primary-orange: #E76F51; --accent-yellow: #E9C46A; --surface-white: #FFFFFF; }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter',sans-serif; background-color:var(--bg-cream); color:var(--text-dark); height:100vh; overflow:hidden; display:flex; flex-direction:column; }
-        h1,h2,h3 { font-family:'Merriweather',serif; }
-        a { text-decoration: none; color: inherit; }
-        
-        /* Improved text readability */
-        p { line-height: 1.8; margin-bottom: 1.2em; font-size: 1.05rem; }
-        li { line-height: 1.7; margin-bottom: 0.5em; font-size: 1.02rem; }
-        
-        nav { height:60px; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; align-items:center; justify-content:space-between; padding:0 25px; background:rgba(253,252,248,0.8); backdrop-filter:blur(10px); }
-        .logo { font-weight:800; display:flex; align-items:center; gap:8px; font-size:1.1rem; cursor:pointer; }
-        .user-profile { display:flex; align-items:center; gap:10px; padding:5px 10px; border-radius:20px; background:#f0f0f0; cursor:pointer; position:relative; }
-        .avatar { width:32px; height:32px; background:var(--text-dark); border-radius:50%; color:white; display:flex; align-items:center; justify-content:center; font-weight:700; }
-        .logout-menu { position:absolute; top:50px; right:0; background:white; border:1px solid #eee; border-radius:8px; padding:10px; display:none; box-shadow:0 5px 20px rgba(0,0,0,0.1); }
-        .logout-menu.active { display:block; }
-        .logout-btn { padding:8px 15px; color:red; cursor:pointer; font-size:0.9rem; }
-        .logout-btn:hover { background:#ffe6e6; border-radius:4px; }
-        
-        .app-container { display:flex; height:calc(100vh - 60px); gap:15px; padding:15px; }
-        
-        .sidebar { width:280px; background:var(--surface-white); border-radius:16px; border:1px solid rgba(0,0,0,0.05); display:flex; flex-direction:column; padding:20px; }
-        .history-item { padding:12px; border-radius:12px; margin-bottom:8px; cursor:pointer; display:flex; gap:10px; align-items:center; transition:0.2s; }
-        .history-item:hover { background:#FFF8F0; }
-        .history-item.active { background:var(--text-dark); color:white; }
-        .history-item.active .icon-bg { background:rgba(255,255,255,0.2); color:white; }
-        .icon-bg { width:30px; height:30px; background:#FFF4E5; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--primary-orange); }
-        .time-text { font-size:0.75rem; color:#bbb; margin-left: auto;}
-        
-        .main-content { flex:1; position:relative; background:var(--surface-white); border-radius:20px; border:1px solid rgba(233,196,106,0.3); overflow:hidden; display:flex; flex-direction:column; }
-        .main-content.drag-over { border: 3px dashed var(--primary-orange); background: rgba(231, 111, 81, 0.05); }
-        .summary-container { 
-            padding: 50px 80px 120px; 
-            overflow-y: auto; 
-            height: 100%;
-            max-width: 900px;
-            margin: 0 auto;
+        :root {
+            --bg-charcoal: #0F0F11;
+            --surface-glass: rgba(30, 30, 35, 0.6);
+            --surface-glass-hover: rgba(40, 40, 45, 0.8);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --primary-orange: #E76F51;
+            --accent-yellow: #E9C46A;
+            --text-main: #ECECEC;
+            --text-muted: #888888;
+            --neon-glow: 0 0 15px rgba(231, 111, 81, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-charcoal);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(231, 111, 81, 0.08) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(42, 157, 143, 0.08) 0%, transparent 20%);
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            height: 60px;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            background: rgba(15, 15, 17, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        .logo {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+            text-decoration: none;
+        }
+
+        .logo i {
+            color: var(--primary-orange);
+            font-size: 1.4rem;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 30px;
+            background: var(--border-glass);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .user-profile:hover {
+            border-color: var(--primary-orange);
+            background: var(--surface-glass-hover);
+        }
+
+        .avatar {
+            width: 28px;
+            height: 28px;
+            background: var(--primary-orange);
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        .logout-menu {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background: var(--bg-charcoal);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 10px;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 200;
+        }
+
+        .logout-menu.active {
+            display: block;
+        }
+
+        .logout-btn {
+            padding: 8px 15px;
+            color: #ff4d4d;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 77, 77, 0.1);
+            border-radius: 4px;
+        }
+
+        /* --- LAYOUT GRID --- */
+        .war-room-container {
+            display: grid;
+            grid-template-columns: 260px 1fr 380px;
+            height: calc(100vh - 60px);
+            gap: 0;
+        }
+
+        /* --- LEFT SIDEBAR (LIBRARY) --- */
+        .sidebar {
+            background: var(--surface-glass);
+            border-right: 1px solid var(--border-glass);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .btn-new {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, var(--primary-orange), #d65a3b);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: var(--neon-glow);
+            transition: 0.3s;
+        }
+
+        .btn-new:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(231, 111, 81, 0.5);
+        }
+
+        .history-list {
+            margin-top: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .history-item {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: var(--text-muted);
+            transition: 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .history-item:hover {
+            background: var(--border-glass);
+            color: var(--text-main);
+        }
+
+        .history-item.active {
+            background: rgba(231, 111, 81, 0.1);
+            border-color: var(--primary-orange);
+            color: var(--primary-orange);
+        }
+
+        /* --- CENTER STAGE (COMPARISON/INTEL) --- */
+        .main-stage {
+            position: relative;
+            padding: 30px 40px;
+            overflow-y: auto;
+            background: transparent;
+        }
+
+        /* Omni-Input Styling */
+        .war-room-input {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 25px;
+            backdrop-filter: blur(20px);
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: #000;
+            border-radius: 20px;
+            padding: 4px;
+        }
+
+        .mode-btn {
+            padding: 6px 16px;
+            border-radius: 16px;
+            color: #666;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .mode-btn.active {
+            background: var(--text-main);
+            color: #000;
+        }
+
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-family: 'Inter';
+            transition: 0.3s;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 2px rgba(231, 111, 81, 0.2);
+        }
+
+        .btn-analyze {
+            width: 100%;
+            margin-top: 15px;
+            padding: 12px;
+            background: transparent;
+            border: 1px solid var(--primary-orange);
+            color: var(--primary-orange);
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.8rem;
+        }
+
+        .btn-analyze:hover {
+            background: var(--primary-orange);
+            color: white;
+        }
+
+        /* Output Area */
+        .intel-output {
+            color: #ccc;
+            line-height: 1.7;
+            display: none;
+            animation: fadeIn 0.5s;
             width: 100%;
         }
-        
-        .summary-container p {
-            line-height: 1.85;
-            margin-bottom: 1.5em;
-            color: #2D2D2D;
-            font-size: 1.08rem;
-        }
-        
-        .summary-container h1 {
-            font-size: 2.2rem;
-            line-height: 1.3;
-            margin-bottom: 0.8em;
-            color: #1a1a1a;
-        }
-        
-        .summary-container h2 {
-            font-size: 1.6rem;
-            line-height: 1.4;
-            margin-top: 1.5em;
-            margin-bottom: 0.8em;
-            color: #333;
-        }
-        
-        .summary-container h3 {
-            font-size: 1.3rem;
-            line-height: 1.4;
-            margin-top: 1.5em;
-            margin-bottom: 0.6em;
-            color: #444;
-        }
-        
-        .summary-container ul, .summary-container ol {
-            padding-left: 25px;
-            margin-bottom: 1.5em;
-        }
-        
-        .summary-container li {
-            line-height: 1.75;
-            margin-bottom: 0.8em;
-            color: #3a3a3a;
-        }
-        
-        .summary-section {
-            background: #fafafa;
+
+        .intel-card {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
             border-radius: 12px;
             padding: 25px;
             margin-bottom: 20px;
-            border-left: 4px solid var(--primary-orange);
         }
-        
-        .doc-header { border-bottom:2px solid #f0f0f0; padding-bottom:25px; margin-bottom:30px; }
-        
-        .input-bar-container { position:absolute; bottom:30px; left:50%; transform:translateX(-50%); width:80%; max-width:600px; background:rgba(255,255,255,0.95); padding:10px; border-radius:60px; box-shadow:0 10px 40px rgba(0,0,0,0.1); border:1px solid #eee; display:flex; align-items:center; gap:10px; }
-        .main-input { flex:1; border:none; background:transparent; font-size:1rem; outline:none; }
-        
-        .social-sidebar { width:320px; background:var(--surface-white); border-radius:16px; border:1px solid rgba(0,0,0,0.05); padding:20px; display:flex; flex-direction:column; }
-        .moderator-banner { background:#3D3531; color:white; padding:15px; border-radius:12px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-        .status-dot { width:8px; height:8px; background:#4ADE80; border-radius:50%; animation:pulse 2s infinite; }
-        @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(74, 222, 128, 0.4); } 70% { box-shadow:0 0 0 10px rgba(74, 222, 128, 0); } 100% { box-shadow:0 0 0 0 rgba(74, 222, 128, 0); } }
-        
-        .chat-area { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:15px; }
-        .chat-bubble { padding:12px 15px; border-radius:12px; font-size:0.9rem; max-width:90%; line-height: 1.6; }
-        .ai-msg { background:#FFF4E5; border-left:3px solid var(--primary-orange); align-self:flex-start; }
-        .user-msg { background:#F3F4F6; align-self:flex-end; }
 
-        @media (max-width:1000px) { .sidebar { display:none; } }
-        @media (max-width:768px) { .summary-container { padding: 30px 25px 120px; } }
+        /* Markdown Tables Override for Dark Mode */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: rgba(231, 111, 81, 0.1);
+            color: var(--primary-orange);
+            padding: 12px;
+            text-align: left;
+            border: 1px solid var(--border-glass);
+        }
+
+        td {
+            padding: 12px;
+            border: 1px solid var(--border-glass);
+            color: #ccc;
+            vertical-align: top;
+        }
+
+        /* --- RIGHT SIDEBAR (LIVE FEED) --- */
+        .live-feed-panel {
+            border-left: 1px solid var(--border-glass);
+            background: rgba(15, 15, 17, 0.4);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .feed-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .live-badge {
+            font-size: 0.7rem;
+            color: #4ADE80;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #4ADE80;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #4ADE80;
+            animation: pulse 1.5s infinite;
+        }
+
+        .feed-stream {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 20px;
+        }
+
+        .tweet-card {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-glass);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .tweet-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .tweet-author {
+            color: var(--primary-orange);
+            font-weight: 700;
+        }
+
+        .tweet-content {
+            font-size: 0.9rem;
+            color: #ddd;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .tweet-actions {
+            display: flex;
+            gap: 15px;
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .tweet-actions i:hover {
+            color: var(--primary-orange);
+            cursor: pointer;
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-glass);
+            background: var(--bg-charcoal);
+        }
+
+        .chat-tools {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .tool-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: #aaa;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tool-btn:hover {
+            background: rgba(231, 111, 81, 0.1);
+            color: var(--primary-orange);
+            border-color: var(--primary-orange);
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            background: #222;
+            border: none;
+            padding: 12px 40px 12px 15px;
+            border-radius: 25px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            background: var(--primary-orange);
+            border-radius: 50%;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(10px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        @media (max-width: 1100px) {
+            .war-room-container {
+                grid-template-columns: 80px 1fr 300px;
+            }
+
+            .sidebar span {
+                display: none;
+            }
+        }
     </style>
 </head>
+
 <body>
+
     <nav>
-        <a href="index.html" class="logo"><i class="ph ph-sparkle"></i>NewsMind.AI</a>
+        <a href="index.html" class="logo"><i class="ph-fill ph-brain"></i> NewsMind OS <span
+                style="font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px; color:#888;">WAR
+                ROOM</span></a>
         <div class="user-profile" onclick="toggleLogoutMenu()">
-            <span id="user-name-display">Loading...</span>
-            <div class="avatar" id="user-avatar">?</div>
+            <span id="user-name-display" style="font-size: 0.85rem;">Guest</span>
+            <div class="avatar" id="user-avatar">G</div>
             <div class="logout-menu" id="logout-menu">
                 <div class="logout-btn" onclick="handleLogout()">Logout</div>
             </div>
         </div>
     </nav>
 
-    <div class="app-container">
+    <div class="war-room-container">
+        <!-- 1. LEFT SIDEBAR -->
         <aside class="sidebar">
-            <h3 style="font-size:0.8rem; color:#999; margin-bottom:10px;">Your History</h3>
-            <div id="history-container"></div>
-            <button onclick="handleNewProject()" style="margin-top:auto; padding:10px; background:var(--text-dark); color:white; border-radius:8px; border:none; cursor:pointer;">+ New Project</button>
+            <button onclick="resetDashboard()" class="btn-new">
+                <i class="ph-bold ph-plus"></i> <span>New Operation</span>
+            </button>
+            <div
+                style="margin-top:25px; font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:1px; font-weight:700;">
+                Recent Intel</div>
+            <div class="history-list" id="history-container">
+                <!-- History Items Injected Here -->
+            </div>
         </aside>
 
-        <main class="main-content">
-            <div id="contentText" class="summary-container" style="line-height:1.7;">
-                <div style="text-align:center; padding:100px 50px; color:#999;">
-                    <i class="ph ph-sparkle" style="font-size:4rem; color:var(--primary-orange);"></i>
-                    <h2 style="margin-top:20px;">Welcome to NewsMind</h2>
-                    <p>Drop a PDF, paste a URL, or enter text to get started</p>
-                </div>
-            </div>
-            
-            <!-- COMPARISON TOOL SECTION -->
-            <div id="compareSection" style="display:none; padding:20px 60px; background:#1a1a1a; border-top:1px solid #333;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <h3 style="color:#ff9f43; margin:0;"><i class="ph ph-scales"></i> News War Room (Source Comparison)</h3>
-                    <button onclick="toggleCompareSection()" style="background:none; border:none; color:#888; cursor:pointer; font-size:1.2rem;"><i class="ph ph-x"></i></button>
-                </div>
-                <p style="color:#aaa; font-size:0.9rem; margin-bottom:15px;">Analyze two sources to find bias and conflicting facts.</p>
-                
-                <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <input type="text" id="compareUrl1" placeholder="Paste URL of Source 1 (e.g., CNN)" style="flex:1; min-width:200px; padding:12px; border-radius:8px; border:1px solid #444; background:#222; color:#fff;">
-                    <input type="text" id="compareUrl2" placeholder="Paste URL of Source 2 (e.g., Fox News)" style="flex:1; min-width:200px; padding:12px; border-radius:8px; border:1px solid #444; background:#222; color:#fff;">
-                </div>
-                
-                <button onclick="runComparison()" style="width:100%; margin-top:10px; padding:12px; background:linear-gradient(45deg, #FF512F, #DD2476); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">
-                    <i class="ph ph-scales"></i> Run Deep Comparison
-                </button>
+        <!-- 2. MAIN STAGE (COMPARISON/ANALYSIS) -->
+        <main class="main-stage">
 
-                <!-- Results Display -->
-                <div id="compareResult" style="display:none; margin-top:20px; background:#1e1e1e; padding:20px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
-                    <h4 style="color:#ff9f43; margin-top:0;"><i class="ph ph-shield-check"></i> Intel Analysis Report</h4>
-                    <div id="compareOutput" style="color:#e0e0e0; line-height:1.6; overflow-x:auto;"></div>
+            <div class="war-room-input" id="inputSection">
+                <div class="input-header">
+                    <h2 style="font-size:1.2rem; display:flex; align-items:center; gap:8px;"><i
+                            class="ph-fill ph-crosshair"></i> Intelligence Gathering</h2>
+                    <div class="mode-toggle">
+                        <div class="mode-btn active" onclick="switchMode('compare')">Compare</div>
+                        <div class="mode-btn" onclick="switchMode('summary')">Analyze</div>
+                    </div>
+                </div>
+
+                <!-- Compare Mode -->
+                <div id="compare-mode" style="display:block;">
+                    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Target two sources for
+                        bias detection.</p>
+                    <div class="compare-grid">
+                        <input type="text" id="urlA" placeholder="Source Alpha (URL)...">
+                        <input type="text" id="urlB" placeholder="Source Bravo (URL)...">
+                    </div>
+                    <button onclick="runWarRoomAnalysis()" class="btn-analyze" id="analyze-btn">Initiate Deep
+                        Comparison</button>
+                </div>
+
+                <!-- Summary Mode -->
+                <div id="summary-mode" style="display:none;">
+                    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Paste content for AI
+                        intelligence extracting.</p>
+                    <textarea id="textInput" rows="3" placeholder="Paste intelligence text or URL here..."
+                        style="resize:none;"></textarea>
+                    <button onclick="runSummary()" class="btn-analyze" id="summary-btn">Run Intelligence Probe</button>
                 </div>
             </div>
 
-            <div class="input-bar-container">
-                <i class="ph ph-plus" style="font-size:1.2rem; color:#888; padding-left:10px; cursor:pointer;" onclick="handleFileClick()"></i>
-                <input type="text" class="main-input" id="main-input" placeholder="Drop files, paste URL, or type text...">
-                <button onclick="handleInputSubmit()" style="width:40px; height:40px; border-radius:50%; background:var(--primary-orange); border:none; color:white; cursor:pointer;"><i class="ph-fill ph-paper-plane-right"></i></button>
+            <!-- RESULTS AREA -->
+            <div id="intel-display" class="intel-output">
+                <div class="intel-card">
+                    <div
+                        style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border-glass); padding-bottom:15px;">
+                        <h3 style="color:var(--primary-orange);"><i class="ph-fill ph-file-text"></i> Tactical Report
+                        </h3>
+                        <div style="font-family:'JetBrains Mono'; font-size:0.8rem; color:#666;" id="intel-status">
+                            STATUS: STANDBY</div>
+                    </div>
+                    <div id="report-content" style="font-size: 1rem;"></div>
+                </div>
             </div>
+
         </main>
 
-        <aside class="social-sidebar">
-            <div class="moderator-banner">
-                <div><strong>AI Moderator</strong><div style="font-size:0.7rem; opacity:0.8;">Ready to chat</div></div>
-                <div class="status-dot"></div>
+        <!-- 3. RIGHT SIDEBAR (LIVE FEED) -->
+        <aside class="live-feed-panel">
+            <div class="feed-header">
+                <div style="font-weight:700; font-size:0.95rem;">Global Intelligence Feed</div>
+                <div class="live-badge">
+                    <div class="live-dot"></div> Live
+                </div>
             </div>
-            <div class="chat-area" id="chatFeed">
-                <div class="chat-bubble ai-msg"><strong>AI:</strong> Hello! Load or create a summary to start discussing.</div>
+
+            <div class="feed-stream" id="feed-stream">
+                <!-- Public Feed Injected Here -->
             </div>
-            <div style="display:flex; gap:10px; margin-top:15px;">
-                <input type="text" id="chatInput" placeholder="Reply..." style="flex:1; padding:10px; border:1px solid #ddd; border-radius:8px;">
-                <button onclick="sendMsg()" style="background:none; border:none; color:var(--primary-orange); cursor:pointer;"><i class="ph-bold ph-paper-plane-right" style="font-size:1.2rem;"></i></button>
+
+            <!-- CHAT INPUT -->
+            <div class="chat-input-area">
+                <div class="chat-tools">
+                    <button class="tool-btn" onclick="insertTemplate('debate')"><i class="ph-bold ph-chats"></i>
+                        Debate</button>
+                    <button class="tool-btn" onclick="insertTemplate('factcheck')"><i
+                            class="ph-bold ph-check-circle"></i> Verify</button>
+                    <button class="tool-btn"
+                        style="margin-left:auto; color:var(--primary-orange); border-color:rgba(231,111,81,0.3);"
+                        onclick="pushToMain()"><i class="ph-bold ph-arrow-left"></i> Analyze This</button>
+                </div>
+                <div class="input-wrapper">
+                    <input type="text" id="feedInput" class="chat-input" placeholder="Broadcast to feed...">
+                    <button class="send-btn" onclick="postToFeed()"><i
+                            class="ph-fill ph-paper-plane-right"></i></button>
+                </div>
             </div>
         </aside>
     </div>
 
-    <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx" style="display:none;">
-
     <script>
-    // Get user from localStorage
-    const userId = localStorage.getItem('userId');
-    const userName = localStorage.getItem('userName');
-    const userEmail = localStorage.getItem('userEmail');
+        // --- AUTH & STATE ---
+        const userId = localStorage.getItem('userId');
+        const userName = localStorage.getItem('userName') || 'Guest';
+        if (!userId) window.location.href = 'login.html';
 
-    // Check authentication
-    if (!userId) {
-        window.location.href = 'login.html';
-    }
+        document.getElementById('user-name-display').innerText = userName;
+        document.getElementById('user-avatar').innerText = userName.charAt(0).toUpperCase();
 
-    // Update UI with user info
-    const displayName = userName || 'User';
-    document.getElementById('user-name-display').textContent = `${displayName} (Free)`;
-    document.getElementById('user-avatar').textContent = displayName.charAt(0).toUpperCase();
+        const socket = io();
 
-    let currentSummaryId = null;
-    let currentDebateRoomId = null;
-
-    // Logout menu toggle
-    function toggleLogoutMenu() {
-        document.getElementById('logout-menu').classList.toggle('active');
-    }
-
-    // Logout handler
-    function handleLogout() {
-        localStorage.clear();
-        window.location.href = 'login.html';
-    }
-
-    // Close logout menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.user-profile')) {
-            document.getElementById('logout-menu').classList.remove('active');
-        }
-    });
-
-    // Close logout menu on Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            document.getElementById('logout-menu').classList.remove('active');
-        }
-    });
-
-    // File click handler
-    function handleFileClick() {
-        document.getElementById('fileInput').click();
-    }
-
-    // File input change handler
-    document.getElementById('fileInput').addEventListener('change', async (e) => {
-        if (e.target.files.length > 0) {
-            await handleFileUpload(e.target.files[0]);
-        }
-    });
-
-    // Input submit handler
-    async function handleInputSubmit() {
-        const input = document.getElementById('main-input').value.trim();
-        if (!input) return;
-
-        if (input.startsWith('http://') || input.startsWith('https://')) {
-            await summarizeURL(input);
-        } else {
-            await summarizeText(input);
-        }
-
-        document.getElementById('main-input').value = '';
-    }
-
-    // Enter key handler
-    document.getElementById('main-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            handleInputSubmit();
-        }
-    });
-
-    // File upload handler
-    async function handleFileUpload(file) {
-        if (file.size > 10 * 1024 * 1024) {
-            showError('File size exceeds 10MB limit');
-            return;
-        }
-
-        try {
-            showLoading(`Processing ${file.name}...`);
-
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('depth', 'medium');
-            formData.append('userId', userId);
-
-            const response = await fetch(API.summarizeFile, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                displaySummary(data.data);
-                currentSummaryId = data.data.id;
-                loadUserHistory();
+        // --- UI UTILS ---
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            if (mode === 'compare') {
+                document.querySelectorAll('.mode-btn')[0].classList.add('active');
+                document.getElementById('compare-mode').style.display = 'block';
+                document.getElementById('summary-mode').style.display = 'none';
             } else {
-                throw new Error(data.message);
-            }
-        } catch (error) {
-            showError('Failed to process file: ' + error.message);
-        }
-    }
-
-    // Summarize URL
-    async function summarizeURL(url) {
-        try {
-            showLoading('Fetching and summarizing content...');
-
-            const response = await apiCall(API.summarizeURL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    url: url,
-                    depth: 'medium',
-                    userId: userId
-                })
-            });
-
-            if (response.success) {
-                displaySummary(response.data);
-                currentSummaryId = response.data.id;
-                loadUserHistory();
-            }
-        } catch (error) {
-            showError('Failed to summarize URL: ' + error.message);
-        }
-    }
-
-    // Summarize text
-    async function summarizeText(text) {
-        try {
-            showLoading('Analyzing text...');
-
-            const response = await apiCall(API.summarizeText, {
-                method: 'POST',
-                body: JSON.stringify({
-                    text: text,
-                    depth: 'medium',
-                    userId: userId
-                })
-            });
-
-            if (response.success) {
-                displaySummary(response.data);
-                currentSummaryId = response.data.id;
-                loadUserHistory();
-            }
-        } catch (error) {
-            showError('Failed to summarize text: ' + error.message);
-        }
-    }
-
-    // Display summary
-    function displaySummary(data) {
-        document.getElementById('contentText').innerHTML = `
-            <div class="doc-header">
-                <span style="background:#E9C46A; font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px;">SUMMARY</span>
-                <h1 style="font-size:2rem; margin:10px 0;">${data.title || 'News Summary'}</h1>
-                <p><strong>Reading Time:</strong> ${data.readingTime || 0} min | <strong>Words:</strong> ${data.wordCount || 0}</p>
-            </div>
-            <div style="margin-top:20px;">
-                ${data.summary.split('\n').map(line => `<p>${line}</p>`).join('')}
-            </div>
-            <h3 style="margin-top:30px;">Key Points:</h3>
-            <ul style="padding-left:20px; list-style:disc;">
-                ${data.keyPoints.map(point => `<li>${point}</li>`).join('')}
-            </ul>
-        `;
-    }
-
-    // Chat functionality
-    async function sendMsg() {
-    const inp = document.getElementById('chatInput');
-    const txt = inp.value.trim();
-    if (!txt) return;
-
-    const feed = document.getElementById('chatFeed');
-    
-    // Add user message
-    const userMsgDiv = document.createElement('div');
-    userMsgDiv.className = 'chat-bubble user-msg';
-    userMsgDiv.textContent = txt;
-    feed.appendChild(userMsgDiv);
-    
-    inp.value = '';
-    feed.scrollTop = feed.scrollHeight;
-
-    // Get current summary for context
-    const summaryText = document.getElementById('contentText').innerText || '';
-    
-    // Show typing indicator
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'chat-bubble ai-msg';
-    typingDiv.innerHTML = '<strong>AI:</strong> <span style="opacity: 0.5;">Thinking...</span>';
-    feed.appendChild(typingDiv);
-    feed.scrollTop = feed.scrollHeight;
-
-    try {
-        // Try API first if debate room exists
-        if (currentDebateRoomId) {
-            const response = await fetch(`${API.baseURL}/debate/send-message`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    roomId: currentDebateRoomId,
-                    message: txt,
-                    userId: userId,
-                    userName: userName,
-                    requestAIResponse: true
-                })
-            });
-
-            const data = await response.json();
-            
-            if (data.success && data.data.aiResponse) {
-                typingDiv.remove();
-                const aiMsgDiv = document.createElement('div');
-                aiMsgDiv.className = 'chat-bubble ai-msg';
-                aiMsgDiv.innerHTML = `<strong>AI:</strong> ${data.data.aiResponse.content}`;
-                feed.appendChild(aiMsgDiv);
-                feed.scrollTop = feed.scrollHeight;
-                return;
-            }
-        } else if (currentSummaryId) {
-            // Create debate room if not exists
-            const roomResponse = await fetch(`${API.baseURL}/debate/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    summaryId: currentSummaryId,
-                    userId: userId,
-                    userName: userName
-                })
-            });
-
-            const roomData = await roomResponse.json();
-            if (roomData.success) {
-                currentDebateRoomId = roomData.data.roomId;
-                // Retry sending message
-                return sendMsg();
+                document.querySelectorAll('.mode-btn')[1].classList.add('active');
+                document.getElementById('compare-mode').style.display = 'none';
+                document.getElementById('summary-mode').style.display = 'block';
             }
         }
-        
-        // If API fails or no summary, use intelligent fallback
-        throw new Error('Using fallback response');
-        
-    } catch (error) {
-        console.log('Using fallback AI response');
-        
-        // Remove typing indicator
-        typingDiv.remove();
-        
-        // Generate intelligent response
-        const aiResponse = generateIntelligentResponse(txt, summaryText);
-        
-        const aiMsgDiv = document.createElement('div');
-        aiMsgDiv.className = 'chat-bubble ai-msg';
-        aiMsgDiv.innerHTML = `<strong>AI:</strong> ${aiResponse}`;
-        feed.appendChild(aiMsgDiv);
-        feed.scrollTop = feed.scrollHeight;
-    }
-}
 
-// Intelligent fallback response generator
-function generateIntelligentResponse(userMessage, context) {
-    const lowerMsg = userMessage.toLowerCase();
-    
-    // Extract context snippets
-    const contextLines = context.split('\n').filter(line => line.trim().length > 20);
-    const firstContext = contextLines.slice(0, 3).join(' ').substring(0, 200);
-    
-    // Question detection and responses
-    if (lowerMsg.includes('?')) {
-        // Casualties/victims questions
-        if (lowerMsg.match(/casualt|victim|injur|death|dead|kill|survive/)) {
-            if (context.includes('nine-seater') || context.includes('aircraft') || context.includes('crash')) {
-                return `Based on the available information about the aircraft incident, the summary indicates it was a nine-seater aircraft. Authorities are investigating the situation. Specific casualty information will be confirmed by officials once the investigation progresses. This is a developing situation that requires official verification.`;
-            }
-            return `Regarding casualties: The information available indicates this is under investigation by authorities. Specific numbers and details about victims will need to be confirmed through official sources as the investigation continues. I'd recommend waiting for official statements for accurate casualty information.`;
+        function toggleLogoutMenu() { document.getElementById('logout-menu').classList.toggle('active'); }
+        function handleLogout() { localStorage.clear(); window.location.href = 'login.html'; }
+
+        function showLoading(msg) {
+            const output = document.getElementById('intel-display');
+            const report = document.getElementById('report-content');
+            output.style.display = 'block';
+            document.getElementById('intel-status').innerText = 'STATUS: ACQUIRING...';
+            report.innerHTML = `<div style="text-align:center; padding:60px; color:var(--primary-orange);"><i class="ph ph-spinner ph-spin" style="font-size:2.5rem;"></i><br><br>${msg}</div>`;
         }
-        
-        // What/When/Where questions
-        if (lowerMsg.match(/what happen|what occur|what is|what was/)) {
-            if (context.length > 50) {
-                return `Based on the summary: ${firstContext}... The key details indicate this is a significant incident currently under investigation. Would you like me to elaborate on any specific aspect?`;
-            }
-            return `From what I can gather from the content, the incident appears to be a serious matter under investigation. The available information suggests authorities are working to determine the full details. What specific aspect interests you most?`;
+
+        // --- FEED LOGIC (REAL-TIME) ---
+        async function loadFeed() {
+            try {
+                const res = await fetch(API.getPublicFeed);
+                const data = await res.json();
+                if (data.success) {
+                    const stream = document.getElementById('feed-stream');
+                    stream.innerHTML = '';
+                    data.data.forEach(p => addPostToUI(p));
+                }
+            } catch (e) { }
         }
-        
-        if (lowerMsg.match(/when did|when was|when will/)) {
-            if (context.includes('Saturday')) {
-                return `According to the information, this occurred on Saturday. Authorities initiated investigations immediately and teams have been deployed to assess the situation. The timeline of events is still being established.`;
-            }
-            return `The timing details are mentioned in the summary. Based on the context, this appears to be a recent incident with investigations currently ongoing. Official timelines will be released as the investigation progresses.`;
-        }
-        
-        if (lowerMsg.match(/where|location|place/)) {
-            if (context.includes('Odisha')) {
-                return `The incident occurred in Odisha, specifically involving a flight from Rourkela to Bhubaneswar. Teams from the tourism department are expected to arrive from Bhubaneswar to assess the situation. This is an active investigation site.`;
-            }
-            return `The location details are outlined in the summary. Authorities have deployed teams to the site for investigation and assessment. Geographic specifics are part of the ongoing official investigation.`;
-        }
-        
-        // How/Why questions
-        if (lowerMsg.match(/how did|how come|why did|cause/)) {
-            return `That's an important question about the cause. According to the summary, authorities have initiated a thorough investigation to determine exactly what happened. The investigation process will examine all factors before official conclusions can be drawn. These findings will be made public once the probe is completed.`;
-        }
-        
-        // General questions
-        return `That's a thoughtful question. Based on the available information: ${firstContext.substring(0, 120)}... The situation is being carefully investigated to establish all the facts. Is there a particular aspect you'd like to discuss further?`;
-    }
-    
-    // Statement responses (opinions, observations)
-    if (lowerMsg.match(/think|believe|feel|seem|appear|look like/)) {
-        return `I appreciate your perspective on this. Looking at the facts presented in the summary, there are indeed multiple dimensions to consider. ${firstContext.substring(0, 100)}... What aspects of this situation concern you most? I'm here to discuss any angle you'd like to explore.`;
-    }
-    
-    // Topic-specific responses
-    if (lowerMsg.match(/crash|accident|incident/)) {
-        return `Yes, this is a serious incident. Based on the summary, it involves an aircraft situation in Odisha with authorities conducting a full investigation. Teams have been mobilized to assess and investigate thoroughly. Such incidents require careful, methodical investigation before conclusions can be reached. What specific aspects would you like to discuss?`;
-    }
-    
-    if (lowerMsg.match(/investigation|probe|authorities|official/)) {
-        return `The investigation is actively underway. According to the information available, authorities have initiated the proper investigative procedures and relevant teams are being deployed. The tourism department is also involved in the assessment. Official findings will be released once the investigation process is complete, ensuring accuracy and thoroughness.`;
-    }
-    
-    if (lowerMsg.match(/aircraft|plane|flight/)) {
-        return `The incident involves a nine-seater aircraft on an IndiaOne Air flight. The route was from Rourkela to Bhubaneswar. Aviation incidents of this nature require comprehensive investigation including technical analysis, witness statements, and examination of all operational factors. Authorities are following standard investigation protocols.`;
-    }
-    
-    // Short responses
-    if (userMessage.length < 20) {
-        return `I see. ${firstContext.substring(0, 100)}... Would you like to explore any particular aspect of this in more detail? I'm here to discuss and analyze the information with you.`;
-    }
-    
-    // Default intelligent response
-    const keywords = userMessage.split(/\s+/).filter(w => w.length > 4).slice(0, 3).join(', ');
-    return `Interesting point about ${keywords}. Looking at the summary, ${firstContext.substring(0, 150)}... This situation is multifaceted and requires careful consideration. What would you like to explore further about this?`;
-}
 
-    // Load user history
-    async function loadUserHistory() {
-        try {
-            const response = await apiCall(API.getSummaries + `?userId=${userId}&limit=10`);
-            if (response.success && response.data.summaries.length > 0) {
-                displayHistoryItems(response.data.summaries);
-            }
-        } catch (error) {
-            console.log('No history found');
-        }
-    }
-
-    // Display history items
-    function displayHistoryItems(summaries) {
-        const container = document.getElementById('history-container');
-        container.innerHTML = '';
-
-        summaries.forEach((summary, index) => {
-            const item = document.createElement('div');
-            item.className = 'history-item';
-            if (index === 0) item.classList.add('active');
-
-            const icon = summary.type === 'url' ? 'ph-link' : 
-                         summary.type === 'file' ? 'ph-file-pdf' : 'ph-file-text';
-
-            const time = new Date(summary.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-
-            item.innerHTML = `
-                <div class="icon-bg"><i class="ph ${icon}"></i></div>
-                <div>
-                    <div style="font-weight:600; font-size:0.9rem;">${summary.title.substring(0, 20)}...</div>
+        function addPostToUI(post, isNew = false) {
+            const stream = document.getElementById('feed-stream');
+            const div = document.createElement('div');
+            div.className = 'tweet-card';
+            const time = new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            div.innerHTML = `
+                <div class="tweet-meta">
+                    <span class="tweet-author">@${post.authorName || 'anonymous'}</span>
+                    <span>${time}</span>
                 </div>
-                <div class="time-text">${time}</div>
-            `;
-
-            item.addEventListener('click', () => loadSummary(summary.id || summary._id));
-            container.appendChild(item);
-        });
-    }
-
-    // Load specific summary
-    async function loadSummary(summaryId) {
-        try {
-            const response = await apiCall(API.getSummary(summaryId));
-            if (response.success) {
-                displaySummary(response.data);
-                currentSummaryId = summaryId;
-            }
-        } catch (error) {
-            showError('Failed to load summary');
-        }
-    }
-
-    // New project handler
-    function handleNewProject() {
-        currentSummaryId = null;
-        currentDebateRoomId = null;
-
-        document.getElementById('contentText').innerHTML = `
-            <div style="text-align:center; padding:100px 50px; color:#999;">
-                <i class="ph ph-sparkle" style="font-size:4rem; color:var(--primary-orange);"></i>
-                <h2 style="margin-top:20px;">Start a New Project</h2>
-                <p>Drop a PDF, paste a URL, or enter text to get started</p>
-            </div>
-        `;
-
-        document.getElementById('chatFeed').innerHTML = `
-            <div class="chat-bubble ai-msg"><strong>AI:</strong> Ready for a new discussion!</div>
-        `;
-    }
-
-    // Helper functions
-    function showLoading(message) {
-        document.getElementById('contentText').innerHTML = `
-            <div style="text-align:center; padding:50px;">
-                <p style="font-size:1.2rem;">${message}</p>
-                <div style="margin-top:20px;">Loading...</div>
-            </div>
-        `;
-    }
-
-    function showError(message) {
-        document.getElementById('contentText').innerHTML = `
-            <div style="text-align:center; padding:50px; color:red;">
-                <p style="font-size:1.2rem;">⚠ ${message}</p>
-            </div>
-        `;
-    }
-
-    // Load history and initialize chat on page load
-    window.addEventListener('load', () => {
-        loadUserHistory();
-        
-        // Initialize chat welcome message if empty
-        const feed = document.getElementById('chatFeed');
-        if (!feed.querySelector('.chat-bubble')) {
-            feed.innerHTML = `
-                <div class="chat-bubble ai-msg">
-                    <strong>AI:</strong> Hello! I'm your AI discussion partner. Load a summary or create content to start our conversation. I can help you analyze, discuss, and explore the content in depth.
+                <div class="tweet-content">${post.content}</div>
+                <div class="tweet-actions">
+                    <i class="ph ph-heart"></i>
+                    <i class="ph ph-arrow-square-out" onclick="runOnInput('${post.content.replace(/'/g, "\\'")}')" title="Analyze this content"></i>
                 </div>
             `;
-        }
-    });
-
-    // Drag and drop
-    setupFileDrop();
-
-    function setupFileDrop() {
-        const container = document.querySelector('.main-content');
-
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            container.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            }, false);
-        });
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            container.addEventListener(eventName, () => {
-                container.classList.add('drag-over');
-            }, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            container.addEventListener(eventName, () => {
-                container.classList.remove('drag-over');
-            }, false);
-        });
-
-        container.addEventListener('drop', (e) => {
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileUpload(files[0]);
-            }
-        }, false);
-    }
-
-    // Setup chat input enter key handler
-    document.getElementById('chatInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            sendMsg();
-        }
-    });
-
-    // ==================== COMPARISON TOOL FUNCTIONS ====================
-    
-    // Toggle comparison section visibility
-    function toggleCompareSection() {
-        const section = document.getElementById('compareSection');
-        if (section.style.display === 'none') {
-            section.style.display = 'block';
-        } else {
-            section.style.display = 'none';
-        }
-    }
-
-    // Run article comparison
-    async function runComparison() {
-        const url1 = document.getElementById('compareUrl1').value.trim();
-        const url2 = document.getElementById('compareUrl2').value.trim();
-        const resultBox = document.getElementById('compareResult');
-        const outputDiv = document.getElementById('compareOutput');
-
-        if (!url1 || !url2) {
-            alert('Please enter both URLs!');
-            return;
+            if (isNew) stream.prepend(div); else stream.appendChild(div);
         }
 
-        // Show loading state
-        resultBox.style.display = 'block';
-        outputDiv.innerHTML = `<p style="color:#00d2d3;"><i class="ph ph-spinner ph-spin"></i> Intercepting content from targets... Initializing Comparison Agent...</p>`;
+        async function postToFeed() {
+            const input = document.getElementById('feedInput');
+            const content = input.value.trim();
+            if (!content) return;
 
-        try {
-            const res = await fetch(`${API_BASE_URL}/tools/compare`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url1, url2 })
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                // Convert markdown to HTML (basic markdown parsing for tables)
-                outputDiv.innerHTML = convertMarkdownToHtml(data.data);
-            } else {
-                outputDiv.innerHTML = `<p style="color:red;">❌ Error: ${data.error}</p>`;
-            }
-        } catch (error) {
-            outputDiv.innerHTML = `<p style="color:red;">❌ System Failure: Server offline or network error.</p>`;
-        }
-    }
-
-    // Simple markdown to HTML converter for tables
-    function convertMarkdownToHtml(markdown) {
-        if (!markdown) return '';
-        
-        let html = markdown
-            // Escape HTML
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            // Headers
-            .replace(/^### (.*$)/gm, '<h4>$1</h4>')
-            .replace(/^## (.*$)/gm, '<h3>$1</h3>')
-            .replace(/^# (.*$)/gm, '<h2>$1</h2>')
-            // Bold/Italic
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            // Lists
-            .replace(/^- (.*$)/gm, '<li>$1</li>')
-            .replace(/^\| (.*)$/gm, (match) => match); // Keep table rows for now
-
-        // Convert markdown tables to HTML tables
-        const tableRegex = /\|(.+)\|\n\|[-:|\s]+\|\n((?:\|.+\|\n?)+)/g;
-        html = html.replace(tableRegex, (match, header, body) => {
-            const headers = header.split('|').map(h => h.trim()).filter(h => h);
-            const rows = body.trim().split('\n').map(row => 
-                row.split('|').map(cell => cell.trim()).filter(cell => cell)
-            );
-
-            let table = '<table style="width:100%; border-collapse:collapse; margin:15px 0;">';
-            
-            // Header row
-            table += '<thead><tr>';
-            headers.forEach(h => {
-                table += `<th style="border:1px solid #444; padding:10px; background:#333; color:#ff9f43; text-align:left;">${h}</th>`;
-            });
-            table += '</tr></thead>';
-
-            // Body rows
-            table += '<tbody>';
-            rows.forEach((row, idx) => {
-                table += `<tr style="background:${idx % 2 === 0 ? '#2a2a2a' : '#1e1e1e'};">`;
-                row.forEach(cell => {
-                    table += `<td style="border:1px solid #444; padding:10px;">${cell}</td>`;
+            try {
+                const res = await fetch(API.postToFeed, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, authorName: userName, authorId: userId })
                 });
-                table += '</tr>';
-            });
-            table += '</tbody></table>';
+                const data = await res.json();
+                if (data.success) {
+                    socket.emit('new-public-post', data.data);
+                    input.value = '';
+                }
+            } catch (e) { }
+        }
 
-            return table;
+        socket.on('public-post-broadcast', (post) => {
+            addPostToUI(post, true);
         });
 
-        // Wrap remaining list items
-        html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+        // --- ANALYSIS LOGIC ---
+        async function runWarRoomAnalysis() {
+            const urlA = document.getElementById('urlA').value.trim();
+            const urlB = document.getElementById('urlB').value.trim();
+            if (!urlA || !urlB) return alert("Alpha and Bravo targets required.");
 
-        // Line breaks
-        html = html.replace(/\n\n/g, '<br><br>');
+            showLoading("Parsing Sources & Detecting Bias...");
 
-        return html;
-    }
+            try {
+                const res = await fetch(API.toolsCompare, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url1: urlA, url2: urlB })
+                });
+                const data = await res.json();
 
-    // Add comparison button to input bar (optional - shows how to toggle)
-    // You can also add a button in the sidebar or header to call toggleCompareSection()
+                if (data.success) {
+                    document.getElementById('intel-status').innerText = 'STATUS: VERIFIED';
+                    document.getElementById('report-content').innerHTML = marked.parse(data.data);
+                    loadHistory();
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (e) {
+                document.getElementById('report-content').innerHTML = `<p style="color:red">Intelligence failure: ${e.message}</p>`;
+            }
+        }
+
+        async function runSummary() {
+            const input = document.getElementById('textInput').value.trim();
+            if (!input) return;
+
+            showLoading("Extracting Core Intel...");
+
+            try {
+                const isUrl = input.startsWith('http');
+                const endpoint = isUrl ? API.summarizeURL : API.summarizeText;
+                const body = isUrl ? { url: input, userId } : { text: input, userId };
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('intel-status').innerText = 'STATUS: COMPLETE';
+                    const summary = data.data;
+                    let html = `## ${summary.title}\n\n${summary.summary}\n\n### Key Highlights:\n` +
+                        summary.keyPoints.map(p => `- ${p}`).join('\n');
+                    document.getElementById('report-content').innerHTML = marked.parse(html);
+                    loadHistory();
+                }
+            } catch (e) {
+                document.getElementById('report-content').innerHTML = `<p style="color:red">Analysis failure: ${e.message}</p>`;
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API.getSummaries}?userId=${userId}&limit=10`);
+                const data = await res.json();
+                if (data.success) {
+                    const container = document.getElementById('history-container');
+                    container.innerHTML = '';
+                    data.data.summaries.forEach(s => {
+                        const div = document.createElement('div');
+                        div.className = 'history-item';
+                        div.innerHTML = `<i class="ph ph-lightning"></i> <span>${s.title.substring(0, 20)}...</span>`;
+                        div.onclick = () => loadHistoricalIntel(s.id);
+                        container.appendChild(div);
+                    });
+                }
+            } catch (e) { }
+        }
+
+        async function loadHistoricalIntel(id) {
+            showLoading("Rekindling Historical Intel...");
+            try {
+                const res = await fetch(API.getSummary(id));
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('intel-status').innerText = 'STATUS: HISTORICAL';
+                    const s = data.data;
+                    let html = `## ${s.title}\n\n${s.summary}\n\n### Key Highlights:\n` +
+                        s.keyPoints.map(p => `- ${p}`).join('\n');
+                    document.getElementById('report-content').innerHTML = marked.parse(html);
+                }
+            } catch (e) { }
+        }
+
+        function resetDashboard() {
+            document.getElementById('intel-display').style.display = 'none';
+            document.getElementById('urlA').value = '';
+            document.getElementById('urlB').value = '';
+            document.getElementById('textInput').value = '';
+        }
+
+        function insertTemplate(type) {
+            const input = document.getElementById('feedInput');
+            input.value = type === 'debate' ? "[DEBATE]: " : "[VERIFY]: ";
+            input.focus();
+        }
+
+        function pushToMain() {
+            const val = document.getElementById('feedInput').value;
+            if (val) { switchMode('summary'); document.getElementById('textInput').value = val; document.getElementById('feedInput').value = ''; }
+        }
+
+        function runOnInput(txt) {
+            switchMode('summary');
+            document.getElementById('textInput').value = txt;
+            runSummary();
+        }
+
+        // --- INIT ---
+        window.addEventListener('load', () => {
+            loadFeed();
+            loadHistory();
+        });
+
+        document.getElementById('feedInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') postToFeed();
+        });
     </script>
 </body>
+
 </html>

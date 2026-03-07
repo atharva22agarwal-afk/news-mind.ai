@@ -43,6 +43,11 @@ io.on('connection', (socket) => {
     socket.leave(`poll:${pollId}`);
   });
 
+  // Global Feed - Post broadcasting
+  socket.on('new-public-post', (postData) => {
+    io.emit('public-post-broadcast', postData);
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
   });
@@ -74,6 +79,7 @@ const User = require('./models/User');
 const Summary = require('./models/Summary');
 const Debate = require('./models/Debate');
 const Poll = require('./models/Poll');
+const PublicPost = require('./models/PublicPost');
 
 // AI Service for comparison tool
 const aiService = require('./services/aiService');
@@ -87,6 +93,7 @@ app.use('/api/research', require('./routes/research'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/factcheck', require('./routes/factcheck'));
+app.use('/api/feed', require('./routes/public_feed'));
 
 // Article Comparison Route
 app.post('/api/tools/compare', async (req, res) => {

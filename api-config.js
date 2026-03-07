@@ -23,7 +23,14 @@ const API = {
     getSummaries: `${API_BASE_URL}/history/summaries`,
     getDebates: `${API_BASE_URL}/history/debates`,
     getStats: `${API_BASE_URL}/history/stats`,
-    deleteSummary: (id) => `${API_BASE_URL}/history/summary/${id}`
+    deleteSummary: (id) => `${API_BASE_URL}/history/summary/${id}`,
+
+    // Tools endpoints
+    toolsCompare: `${API_BASE_URL}/tools/compare`,
+
+    // Public Feed endpoints
+    getPublicFeed: `${API_BASE_URL}/feed/latest`,
+    postToFeed: `${API_BASE_URL}/feed/post`
 };
 
 // Helper function to make API calls
