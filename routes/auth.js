@@ -17,13 +17,13 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check if user exists (Mongoose syntax)
-    let user = await User.findOne({ email: email.toLowerCase() });
+    // Check if user exists (Sequelize syntax)
+    let user = await User.findOne({ where: { email: email.toLowerCase() } });
 
     if (!user) {
       // Create new user
       const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-      
+
       user = await User.create({
         userId: userId,
         email: email.toLowerCase(),
@@ -34,8 +34,7 @@ router.post('/login', async (req, res) => {
       console.log('✅ New user created:', email);
     } else {
       // Update last active time for existing users
-      user.lastActive = new Date();
-      await user.save();
+      await user.update({ lastActive: new Date() });
       console.log('✅ Existing user logged in:', email);
     }
 
@@ -65,7 +64,7 @@ router.post('/login', async (req, res) => {
  */
 router.get('/user/:userId', async (req, res) => {
   try {
-    const user = await User.findOne({ userId: req.params.userId });
+    const user = await User.findOne({ where: { userId: req.params.userId } });
 
     if (!user) {
       return res.status(404).json({

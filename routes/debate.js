@@ -16,27 +16,27 @@ router.setIO = (socketIO) => { io = socketIO; };
 router.post('/create', async (req, res) => {
   try {
     const { summaryId, userId = 'guest', userName = 'Anonymous' } = req.body;
-    
+
     if (!summaryId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Summary ID is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Summary ID is required'
       });
     }
-    
-    // Verify summary exists (Mongoose syntax)
-    const summary = await Summary.findById(summaryId);
+
+    // Verify summary exists (Sequelize syntax)
+    const summary = await Summary.findByPk(summaryId);
     if (!summary) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Summary not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Summary not found'
       });
     }
-    
+
     // Generate unique room ID
     const roomId = uuidv4();
-    
-    // Create debate room (Mongoose syntax)
+
+    // Create debate room (Sequelize syntax)
     const debate = await Debate.create({
       summaryId,
       roomId,
@@ -52,9 +52,9 @@ router.post('/create', async (req, res) => {
         side: 'neutral'
       }]
     });
-    
+
     console.log(`✅ Debate room created: ${roomId}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -63,12 +63,12 @@ router.post('/create', async (req, res) => {
         createdAt: debate.createdAt
       }
     });
-    
+
   } catch (error) {
     console.error('Create debate error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create debate room' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create debate room'
     });
   }
 });
@@ -82,8 +82,8 @@ router.post('/:id/argue', async (req, res) => {
     const { content, side, userId = 'guest', userName = 'Anonymous' } = req.body;
     const debateId = req.params.id;
 
-    // Mongoose syntax
-    const debate = await Debate.findById(debateId);
+    // Sequelize syntax
+    const debate = await Debate.findByPk(debateId);
 
     if (!debate) {
       return res.status(404).json({ error: 'Debate not found' });
@@ -101,8 +101,10 @@ router.post('/:id/argue', async (req, res) => {
       return res.status(400).json({ error: 'Argument too short. Make your case!' });
     }
 
-    // Add argument to embedded array
+    // Add argument to JSON array (Sequelize requires manual update for JSON)
+    const currentArguments = debate.arguments || [];
     const newArgument = {
+      id: uuidv4(), // Give it an ID since it's in JSON now
       userId,
       content,
       side,
@@ -111,12 +113,14 @@ router.post('/:id/argue', async (req, res) => {
       updatedAt: new Date()
     };
 
-    debate.arguments.push(newArgument);
-    debate.lastActivity = new Date();
-    await debate.save();
+    const updatedArguments = [...currentArguments, newArgument];
+    await debate.update({
+      arguments: updatedArguments,
+      lastActivity: new Date()
+    });
 
-    // Get the saved argument (last one in array)
-    const savedArgument = debate.arguments[debate.arguments.length - 1];
+    // Get the saved argument
+    const savedArgument = newArgument;
 
     // Send response immediately - don't make user wait for AI
     res.json({
@@ -142,31 +146,35 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
     // Judge the specific argument
     const analysis = await judgeArgument(content, debate.topic, side);
 
-    // Find and update the argument in the embedded array
-    const argIndex = debate.arguments.findIndex(a => 
-      a._id.toString() === argument._id.toString()
+    // Update the argument in the JSON array
+    const currentArgs = [...(debate.arguments || [])];
+    const argIndex = currentArgs.findIndex(a =>
+      a.id === argument.id
     );
 
     if (argIndex !== -1) {
-      debate.arguments[argIndex].aiStrengthScore = analysis.strengthScore;
-      debate.arguments[argIndex].aiLogicalFallacies = analysis.strongPoints || [];
-      debate.arguments[argIndex].aiCounterArguments = analysis.weakPoints || [];
-      debate.arguments[argIndex].aiVerdict = analysis.verdict;
-      debate.arguments[argIndex].evidenceQuality = analysis.evidenceQuality;
-      debate.arguments[argIndex].emotionPercent = analysis.emotionPercent;
-      debate.arguments[argIndex].logicPercent = analysis.logicPercent;
-      debate.arguments[argIndex].aiIsAnalyzed = true;
-      debate.arguments[argIndex].updatedAt = new Date();
+      currentArgs[argIndex] = {
+        ...currentArgs[argIndex],
+        aiStrengthScore: analysis.strengthScore,
+        aiLogicalFallacies: analysis.strongPoints || [],
+        aiCounterArguments: analysis.weakPoints || [],
+        aiVerdict: analysis.verdict,
+        evidenceQuality: analysis.evidenceQuality,
+        emotionPercent: analysis.emotionPercent,
+        logicPercent: analysis.logicPercent,
+        aiIsAnalyzed: true,
+        updatedAt: new Date()
+      };
 
-      await debate.save();
+      await debate.update({ arguments: currentArgs });
     }
 
     // Emit to all users watching this debate (real-time update)
     if (io) {
-      io.to(`debate:${debate._id}`).emit('argument-analyzed', {
-        argumentId: argument._id,
+      io.to(`debate:${debate.id}`).emit('argument-analyzed', {
+        argumentId: argument.id,
         analysis,
-        debateId: debate._id
+        debateId: debate.id
       });
     }
 
@@ -187,8 +195,8 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
       await debate.save();
 
       if (io) {
-        io.to(`debate:${debate._id}`).emit('debate-moderated', {
-          debateId: debate._id,
+        io.to(`debate:${debate.id}`).emit('debate-moderated', {
+          debateId: debate.id,
           moderation
         });
       }
@@ -206,54 +214,55 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
 router.post('/join', async (req, res) => {
   try {
     const { roomId, userId = 'guest', userName = 'Anonymous' } = req.body;
-    
+
     if (!roomId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Room ID is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Room ID is required'
       });
     }
-    
-    // Mongoose syntax
-    const debate = await Debate.findOne({ roomId, isActive: true });
-    
+
+    // Sequelize syntax
+    const debate = await Debate.findOne({ where: { roomId, isActive: true } });
+
     if (!debate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Debate room not found or inactive' 
+      return res.status(404).json({
+        success: false,
+        message: 'Debate room not found or inactive'
       });
     }
-    
+
     // Check if already a participant
     const alreadyJoined = debate.participants.includes(userId);
-    
+
     if (!alreadyJoined) {
       // Check max participants
       if (debate.participants.length >= debate.maxParticipants) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Debate room is full' 
+        return res.status(400).json({
+          success: false,
+          message: 'Debate room is full'
         });
       }
-      
-      // Add participant
-      debate.participants.push(userId);
-      
-      // Add system message
-      debate.messages.push({
+
+      // Update participants and messages JSON
+      const participants = [...debate.participants, userId];
+      const messages = [...debate.messages, {
         userId: 'system',
         userName: 'System',
         content: `${userName} joined the debate`,
         timestamp: new Date(),
         side: 'neutral'
+      }];
+
+      await debate.update({
+        participants,
+        messages,
+        lastActivity: new Date()
       });
-      
-      debate.lastActivity = new Date();
-      await debate.save();
     }
-    
+
     console.log(`✅ User joined debate: ${roomId}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -263,12 +272,12 @@ router.post('/join', async (req, res) => {
         messages: debate.messages
       }
     });
-    
+
   } catch (error) {
     console.error('Join debate error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to join debate room' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to join debate room'
     });
   }
 });
@@ -279,66 +288,70 @@ router.post('/join', async (req, res) => {
  */
 router.post('/message', async (req, res) => {
   try {
-    const { 
-      roomId, 
-      message, 
-      userId = 'guest', 
+    const {
+      roomId,
+      message,
+      userId = 'guest',
       userName = 'Anonymous',
-      requestAIResponse = false 
+      requestAIResponse = false
     } = req.body;
-    
+
     if (!roomId || !message) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Room ID and message are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Room ID and message are required'
       });
     }
-    
-    // Mongoose syntax
-    const debate = await Debate.findOne({ roomId: roomId, isActive: true });
-    
+
+    // Sequelize syntax
+    const debate = await Debate.findOne({ where: { roomId: roomId, isActive: true } });
+
     if (!debate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Debate room not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Debate room not found'
       });
     }
-    
-    // Add user message
-    debate.messages.push({
+
+    // Update messages JSON (Sequelize syntax)
+    const updatedMessages = [...(debate.messages || []), {
       userId,
       userName,
       content: message,
       timestamp: new Date(),
       side: 'neutral'
+    }];
+
+    await debate.update({
+      messages: updatedMessages,
+      lastActivity: new Date()
     });
-    
-    debate.lastActivity = new Date();
-    await debate.save();
-    
+
     let aiResponse = null;
-    
+
     // Generate AI response if requested
     if (requestAIResponse) {
       try {
         const aiService = require('../services/aiService');
         const aiMessage = await aiService.generateDebateResponse(
-          debate.topic, 
-          message, 
+          debate.topic,
+          message,
           debate.messages
         );
-        
-        debate.messages.push({
+
+        const updatedMessagesWithAI = [...(debate.messages || []), {
           userId: 'ai',
           userName: 'AI Moderator',
           content: aiMessage,
           timestamp: new Date(),
           side: 'neutral'
+        }];
+
+        await debate.update({
+          messages: updatedMessagesWithAI,
+          lastActivity: new Date()
         });
-        
-        debate.lastActivity = new Date();
-        await debate.save();
-        
+
         aiResponse = {
           userId: 'ai',
           userName: 'AI Moderator',
@@ -346,14 +359,14 @@ router.post('/message', async (req, res) => {
           timestamp: new Date(),
           side: 'neutral'
         };
-        
+
       } catch (aiError) {
         console.error('AI response error:', aiError);
       }
     }
-    
+
     console.log(`✅ Message sent in debate: ${roomId}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -367,12 +380,12 @@ router.post('/message', async (req, res) => {
         aiResponse
       }
     });
-    
+
   } catch (error) {
     console.error('Send message error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to send message' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send message'
     });
   }
 });
@@ -384,43 +397,45 @@ router.post('/message', async (req, res) => {
 router.post('/moderate', async (req, res) => {
   try {
     const { roomId } = req.body;
-    
+
     if (!roomId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Room ID is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Room ID is required'
       });
     }
-    
-    // Mongoose syntax
-    const debate = await Debate.findOne({ roomId: roomId, isActive: true });
-    
+
+    // Sequelize syntax
+    const debate = await Debate.findOne({ where: { roomId: roomId, isActive: true } });
+
     if (!debate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Debate room not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Debate room not found'
       });
     }
-    
+
     const aiService = require('../services/aiService');
-    
+
     // Generate moderation response
     const moderation = await aiService.moderateDebate(debate.topic, debate.messages);
-    
-    // Add moderation message
-    debate.messages.push({
+
+    // Update messages JSON
+    const updatedMsgs = [...(debate.messages || []), {
       userId: 'ai',
       userName: 'AI Moderator',
       content: moderation,
       timestamp: new Date(),
       side: 'neutral'
+    }];
+
+    await debate.update({
+      messages: updatedMsgs,
+      lastActivity: new Date()
     });
-    
-    debate.lastActivity = new Date();
-    await debate.save();
-    
+
     console.log(`✅ Moderation added to debate: ${roomId}`);
-    
+
     res.json({
       success: true,
       data: {
@@ -433,12 +448,12 @@ router.post('/moderate', async (req, res) => {
         }
       }
     });
-    
+
   } catch (error) {
     console.error('Moderation error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to generate moderation' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate moderation'
     });
   }
 });
@@ -449,26 +464,26 @@ router.post('/moderate', async (req, res) => {
  */
 router.get('/:roomId', async (req, res) => {
   try {
-    // Mongoose syntax
-    const debate = await Debate.findOne({ roomId: req.params.roomId });
-    
+    // Sequelize syntax
+    const debate = await Debate.findOne({ where: { roomId: req.params.roomId } });
+
     if (!debate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Debate room not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Debate room not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: debate
     });
-    
+
   } catch (error) {
     console.error('Get debate error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to retrieve debate' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve debate'
     });
   }
 });
@@ -480,41 +495,42 @@ router.get('/:roomId', async (req, res) => {
 router.delete('/:roomId', async (req, res) => {
   try {
     const { userId } = req.body;
-    
-    // Mongoose syntax
-    const debate = await Debate.findOne({ roomId: req.params.roomId });
-    
+
+    // Sequelize syntax
+    const debate = await Debate.findOne({ where: { roomId: req.params.roomId } });
+
     if (!debate) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Debate room not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Debate room not found'
       });
     }
-    
+
     // Only creator can close
     if (debate.createdBy !== userId) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Only the creator can close this debate' 
+      return res.status(403).json({
+        success: false,
+        message: 'Only the creator can close this debate'
       });
     }
-    
-    debate.isActive = false;
-    debate.status = 'closed';
-    await debate.save();
-    
+
+    await debate.update({
+      isActive: false,
+      status: 'closed'
+    });
+
     console.log(`✅ Debate room closed: ${req.params.roomId}`);
-    
+
     res.json({
       success: true,
       message: 'Debate room closed'
     });
-    
+
   } catch (error) {
     console.error('Close debate error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to close debate' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to close debate'
     });
   }
 });

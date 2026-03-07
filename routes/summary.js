@@ -99,7 +99,7 @@ router.post('/url', async (req, res) => {
     cache.set(cacheKey, responseData);
     console.log(`💾 Cached summary for: ${url}`);
 
-    // Save to database (Mongoose syntax)
+    // Save to database (Sequelize syntax)
     const summaryDoc = await Summary.create({
       userId,
       title,
@@ -113,12 +113,12 @@ router.post('/url', async (req, res) => {
       readingTime: result.readingTime
     });
 
-    console.log(`✅ Summary created: ${summaryDoc._id}`);
+    console.log(`✅ Summary created: ${summaryDoc.id}`);
 
     res.json({
       success: true,
       data: {
-        id: summaryDoc._id,
+        id: summaryDoc.id,
         ...responseData,
         createdAt: summaryDoc.createdAt
       }
@@ -170,7 +170,7 @@ router.post('/file', upload.single('file'), async (req, res) => {
     // Generate summary - returns an object
     const result = await aiService.summarizeText(extracted.content, depth);
 
-    // Save to database (Mongoose syntax)
+    // Save to database (Sequelize syntax)
     const summaryDoc = await Summary.create({
       userId,
       title: extracted.title,
@@ -184,12 +184,12 @@ router.post('/file', upload.single('file'), async (req, res) => {
       readingTime: result.readingTime
     });
 
-    console.log(`✅ Summary created: ${summaryDoc._id}`);
+    console.log(`✅ Summary created: ${summaryDoc.id}`);
 
     res.json({
       success: true,
       data: {
-        id: summaryDoc._id,
+        id: summaryDoc.id,
         title: extracted.title,
         summary: result.summary,
         keyPoints: result.keyPoints,
@@ -256,7 +256,7 @@ router.post('/text', async (req, res) => {
     // Generate title if not provided
     const finalTitle = title || result.title || aiService.generateTitle(text);
 
-    // Save to database (Mongoose syntax)
+    // Save to database (Sequelize syntax)
     const summaryDoc = await Summary.create({
       userId,
       title: finalTitle,
@@ -270,12 +270,12 @@ router.post('/text', async (req, res) => {
       readingTime: result.readingTime
     });
 
-    console.log(`✅ Summary created: ${summaryDoc._id}`);
+    console.log(`✅ Summary created: ${summaryDoc.id}`);
 
     res.json({
       success: true,
       data: {
-        id: summaryDoc._id,
+        id: summaryDoc.id,
         title: finalTitle,
         summary: result.summary,
         keyPoints: result.keyPoints,
@@ -297,33 +297,35 @@ router.post('/text', async (req, res) => {
   }
 });
 
+// Route reordered to prevent shadowing by /:id
 /**
- * GET /api/summary/:id
- * Get a specific summary by ID
+ * GET /api/summary/trending
+ * Most viewed summaries with bias flags
  */
-router.get('/:id', async (req, res) => {
+router.get('/trending', async (req, res) => {
   try {
-    // Mongoose uses findById instead of findByPk
-    const summary = await Summary.findById(req.params.id);
-
-    if (!summary) {
-      return res.status(404).json({
-        success: false,
-        message: 'Summary not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: summary
+    // Sequelize syntax - findAll instead of find, order instead of sort
+    const summaries = await Summary.findAll({
+      // where: { isPublic: true }, // Add this if you have an isPublic field
+      order: [['viewCount', 'DESC'], ['createdAt', 'DESC']],
+      limit: 20
     });
 
-  } catch (error) {
-    console.error('Get summary error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve summary'
-    });
+    const formatted = summaries.map(s => ({
+      id: s.id,
+      headline: s.headline || s.title,
+      tldr: s.tldr,
+      sentiment: s.sentiment,
+      biasWarning: s.biasAnalysis?.warning,
+      sourceUrl: s.sourceUrl,
+      createdAt: s.createdAt,
+      viewCount: s.viewCount
+    }));
+
+    res.json({ success: true, summaries: formatted });
+  } catch (err) {
+    console.error('Trending error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -352,12 +354,15 @@ router.post('/deep', async (req, res) => {
       }
     }
 
-    // Check if this URL was already summarized recently (24hr cache) - Mongoose syntax
+    // Check if this URL was already summarized recently (24hr cache) - Sequelize syntax
     if (sourceUrl) {
+      const { Op } = require('sequelize');
       const recent = await Summary.findOne({
-        sourceUrl,
-        createdAt: {
-          $gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        where: {
+          sourceUrl,
+          createdAt: {
+            [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
+          }
         }
       });
 
@@ -369,7 +374,7 @@ router.post('/deep', async (req, res) => {
     // Deep AI analysis
     const analysis = await deepSummarize(content, sourceUrl);
 
-    // Save to DB with full structured data (Mongoose syntax)
+    // Save to DB with full structured data (Sequelize syntax)
     const summary = await Summary.create({
       userId,
       sourceUrl,
@@ -380,11 +385,13 @@ router.post('/deep', async (req, res) => {
       summary: analysis.tldr,
       keyPoints: analysis.keyFacts || [],
       sentiment: analysis.sentiment,
-      biasWarning: analysis.missingContext,
-      biasScore: analysis.biasScore,
-      credibilityFlags: analysis.credibilityFlags || [],
-      semanticGravity: analysis.semanticGravity || 0,
-      readTime: Math.ceil(content.split(/\s+/).length / 200),
+      biasAnalysis: {
+        score: analysis.biasScore,
+        warning: analysis.missingContext,
+        flags: analysis.credibilityFlags || []
+      },
+      wordCount: content.split(/\s+/).length,
+      readingTime: Math.ceil(content.split(/\s+/).length / 200),
       source: url ? 'url' : 'text'
     });
 
@@ -397,32 +404,34 @@ router.post('/deep', async (req, res) => {
 });
 
 /**
- * GET /api/summary/trending
- * Most viewed summaries with bias flags
+ * GET /api/summary/:id
+ * Get a specific summary by ID
  */
-router.get('/trending', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    // Mongoose syntax - find instead of findAll, sort instead of order
-    const summaries = await Summary.find({ isPublic: true })
-      .sort({ viewCount: -1, createdAt: -1 })
-      .limit(20);
+    // Sequelize uses findByPk instead of findById
+    const summary = await Summary.findByPk(req.params.id);
 
-    const formatted = summaries.map(s => ({
-      id: s._id,
-      headline: s.headline || s.title,
-      tldr: s.tldr,
-      sentiment: s.sentiment,
-      biasWarning: s.biasWarning,
-      sourceUrl: s.sourceUrl,
-      createdAt: s.createdAt,
-      viewCount: s.viewCount
-    }));
+    if (!summary) {
+      return res.status(404).json({
+        success: false,
+        message: 'Summary not found'
+      });
+    }
 
-    res.json({ success: true, summaries: formatted });
-  } catch (err) {
-    console.error('Trending error:', err);
-    res.status(500).json({ error: err.message });
+    res.json({
+      success: true,
+      data: summary
+    });
+
+  } catch (error) {
+    console.error('Get summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve summary'
+    });
   }
 });
+
 
 module.exports = router;

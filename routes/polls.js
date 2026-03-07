@@ -9,15 +9,15 @@ const Poll = require('../models/Poll');
 router.post('/create', async (req, res) => {
   try {
     const { question, optionA, optionB, summaryId, userId = 'guest' } = req.body;
-    
+
     if (!question || !optionA || !optionB) {
       return res.status(400).json({
         success: false,
         message: 'Question and both options are required'
       });
     }
-    
-    // Mongoose syntax
+
+    // Sequelize syntax
     const poll = await Poll.create({
       question,
       optionA,
@@ -28,14 +28,14 @@ router.post('/create', async (req, res) => {
       votesB: 0,
       voters: []
     });
-    
-    console.log(`✅ Poll created: ${poll._id}`);
-    
+
+    console.log(`✅ Poll created: ${poll.id}`);
+
     res.json({
       success: true,
       data: poll
     });
-    
+
   } catch (error) {
     console.error('Create poll error:', error);
     res.status(500).json({
@@ -52,24 +52,24 @@ router.post('/create', async (req, res) => {
 router.post('/vote', async (req, res) => {
   try {
     const { pollId, option, userId = 'guest' } = req.body;
-    
+
     if (!pollId || !option) {
       return res.status(400).json({
         success: false,
         message: 'Poll ID and option are required'
       });
     }
-    
-    // Mongoose syntax
-    const poll = await Poll.findById(pollId);
-    
+
+    // Sequelize syntax
+    const poll = await Poll.findByPk(pollId);
+
     if (!poll) {
       return res.status(404).json({
         success: false,
         message: 'Poll not found'
       });
     }
-    
+
     // Check if user already voted
     const voters = poll.voters || [];
     if (voters.includes(userId)) {
@@ -78,32 +78,34 @@ router.post('/vote', async (req, res) => {
         message: 'Already voted'
       });
     }
-    
+
     // Record vote
+    const updateData = {
+      voters: [...voters, userId]
+    };
+
     if (option === 'A') {
-      poll.votesA += 1;
+      updateData.votesA = poll.votesA + 1;
     } else if (option === 'B') {
-      poll.votesB += 1;
+      updateData.votesB = poll.votesB + 1;
     } else {
       return res.status(400).json({
         success: false,
         message: 'Invalid option. Use A or B'
       });
     }
-    
-    // Add voter to list
-    poll.voters = [...voters, userId];
-    await poll.save();
-    
+
+    await poll.update(updateData);
+
     const totalVotes = poll.votesA + poll.votesB;
-    
+
     // Generate AI insight when poll hits milestones (10, 50, 100, 500 votes)
     const milestones = [10, 50, 100, 500];
     if (milestones.includes(totalVotes)) {
       // Run async - don't block the response
       generatePollInsight(poll).catch(console.error);
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -115,7 +117,7 @@ router.post('/vote', async (req, res) => {
         aiInsight: poll.aiInsight
       }
     });
-    
+
   } catch (error) {
     console.error('Vote error:', error);
     res.status(500).json({
@@ -131,19 +133,20 @@ router.post('/vote', async (req, res) => {
 async function generatePollInsight(poll) {
   try {
     const { researchChat } = require('../services/aiService');
-    
+
     const results = `"${poll.optionA}": ${poll.votesA} votes, "${poll.optionB}": ${poll.votesB} votes`;
     const total = poll.votesA + poll.votesB;
-    
+
     const prompt = `Poll: "${poll.question}"\nResults: ${results}\nTotal votes: ${total}\n\nWhat does this voting pattern suggest about public opinion? Keep it under 3 sentences.`;
-    
+
     const response = await researchChat(prompt, []);
-    
-    poll.aiInsight = response.reply;
-    poll.aiInsightGeneratedAt = new Date();
-    await poll.save();
-    
-    console.log(`✅ AI insight generated for poll ${poll._id}`);
+
+    await poll.update({
+      aiInsight: response.reply,
+      aiInsightGeneratedAt: new Date()
+    });
+
+    console.log(`✅ AI insight generated for poll ${poll.id}`);
   } catch (error) {
     console.error('AI insight error:', error.message);
   }
@@ -155,21 +158,21 @@ async function generatePollInsight(poll) {
  */
 router.get('/:id', async (req, res) => {
   try {
-    // Mongoose syntax
-    const poll = await Poll.findById(req.params.id);
-    
+    // Sequelize syntax
+    const poll = await Poll.findByPk(req.params.id);
+
     if (!poll) {
       return res.status(404).json({
         success: false,
         message: 'Poll not found'
       });
     }
-    
+
     res.json({
       success: true,
       data: poll
     });
-    
+
   } catch (error) {
     console.error('Get poll error:', error);
     res.status(500).json({
@@ -185,15 +188,16 @@ router.get('/:id', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    // Mongoose syntax
-    const polls = await Poll.find()
-      .sort({ createdAt: -1 });
-    
+    // Sequelize syntax
+    const polls = await Poll.findAll({
+      order: [['createdAt', 'DESC']]
+    });
+
     res.json({
       success: true,
       data: polls
     });
-    
+
   } catch (error) {
     console.error('Get polls error:', error);
     res.status(500).json({

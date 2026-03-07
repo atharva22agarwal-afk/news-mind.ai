@@ -1,29 +1,45 @@
-const mongoose = require('mongoose');
+const { Sequelize } = require('sequelize');
+const path = require('path');
+require('dotenv').config();
 
-// MongoDB Connection URI from environment variable
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/newsmind';
+// Determine database config based on environment
+let sequelize;
 
-// Connection options
-const options = {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-};
+if (process.env.DATABASE_URL) {
+    // Production: Use DATABASE_URL (Postgres, etc.)
+    console.log('🌐 Using Production Database (via DATABASE_URL)');
+    sequelize = new Sequelize(process.env.DATABASE_URL, {
+        dialect: 'postgres',
+        dialectOptions: {
+            ssl: {
+                require: true,
+                rejectUnauthorized: false // Necessary for Vercel/Neon Postgres
+            }
+        },
+        logging: false
+    });
+} else {
+    // Development: Use local SQLite
+    console.log('📂 Using Local SQLite Database');
+    sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: path.join(__dirname, '..', 'newsmind.sqlite'),
+        logging: false
+    });
+}
 
-// Connect to MongoDB
 const connectDB = async () => {
     try {
-        if (mongoose.connection.readyState >= 1) {
-            console.log('📊 MongoDB Already Connected');
-            return;
-        }
+        await sequelize.authenticate();
+        console.log('✅ Database Connected Successfully');
 
-        await mongoose.connect(MONGODB_URI, options);
-        console.log('✅ MongoDB Connected Successfully');
+        // Auto-sync in development or if FORCE_SYNC is set
+        if (process.env.NODE_ENV !== 'production' || process.env.FORCE_SYNC === 'true') {
+            await sequelize.sync({ alter: true });
+            console.log('✅ Database Synced');
+        }
     } catch (error) {
-        console.error('❌ MongoDB Connection Error:', error.message);
-        // Don't exit process on Vercel serverless environment
+        console.error('❌ Database Connection Error:', error.message);
         if (!process.env.VERCEL) {
             process.exit(1);
         }
@@ -31,25 +47,8 @@ const connectDB = async () => {
     }
 };
 
-// Handle connection events
-mongoose.connection.on('connected', () => {
-    console.log('📊 Mongoose connected to MongoDB');
-});
-
-mongoose.connection.on('error', (err) => {
-    console.error('❌ Mongoose connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-    console.log('📊 Mongoose disconnected');
-});
-
-// For Vercel serverless - ensure connection is ready
 const getConnection = async () => {
-    if (mongoose.connection.readyState !== 1) {
-        await connectDB();
-    }
-    return mongoose.connection;
+    return sequelize;
 };
 
-module.exports = { connectDB, getConnection, mongoose };
+module.exports = { connectDB, getConnection, sequelize, mongoose: {} };

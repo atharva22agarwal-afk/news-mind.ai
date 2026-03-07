@@ -69,11 +69,11 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Serve static files (for audio files)
 app.use('/uploads', express.static('uploads'));
 
-// Import models (registers them with Mongoose)
-require('./models/User');
-require('./models/Summary');
-require('./models/Debate');
-require('./models/Poll');
+// Import models (registers them with Sequelize)
+const User = require('./models/User');
+const Summary = require('./models/Summary');
+const Debate = require('./models/Debate');
+const Poll = require('./models/Poll');
 
 // AI Service for comparison tool
 const aiService = require('./services/aiService');
@@ -120,15 +120,15 @@ app.post('/api/tools/compare', async (req, res) => {
 // Health Check
 app.get('/', async (req, res) => {
   try {
-    const dbState = require('mongoose').connection.readyState;
-    const dbStatus = dbState === 1 ? 'connected' : 'disconnected';
-    
+    const { sequelize } = require('./config/database');
+    await sequelize.authenticate();
+
     res.json({
       status: 'success',
       message: 'News AI Summarizer API is running!',
       version: '1.0.0',
-      database: 'MongoDB',
-      dbStatus,
+      database: 'SQLite',
+      dbStatus: 'connected',
       realtime: 'Socket.io enabled',
       endpoints: {
         summary: '/api/summary',
@@ -162,15 +162,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server with MongoDB connection
+// Start Server with SQLite sync
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB and start server
+// Sync Database and start server
 const startServer = async () => {
   try {
-    // Connect to MongoDB
-    await connectDB();
-    console.log('✅ MongoDB Connected & Models Registered');
+    const { sequelize } = require('./config/database');
+    await sequelize.sync({ force: false });
+    console.log('✅ SQLite Database Connected & Synced');
 
     httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);

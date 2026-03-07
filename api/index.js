@@ -4,20 +4,12 @@ require('dotenv').config();
 
 const app = express();
 
-// Error handling wrapper for sync errors
+// Error handling wrapper for initialization
 let appError = null;
 
 try {
-  // Import database connection
-  const { connectDB } = require('../config/database');
-
-  // Check required environment variables
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn('Warning: GEMINI_API_KEY not set');
-  }
-  if (!process.env.MONGODB_URI) {
-    console.warn('Warning: MONGODB_URI not set - using local MongoDB');
-  }
+  // Import database connection (Sequelize version)
+  const { sequelize, connectDB } = require('../config/database');
 
   // Middleware
   app.use(cors({
@@ -30,11 +22,13 @@ try {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Connect to MongoDB on first request (serverless optimization)
+  // Connect/Sync to Database on first request (serverless optimization)
   let dbConnected = false;
   const ensureDB = async () => {
     if (!dbConnected) {
       await connectDB();
+      // In serverless, we usually don't want to sync { alter: true } on every request
+      // but ensure connection is established
       dbConnected = true;
     }
   };
@@ -54,7 +48,7 @@ try {
     }
   });
 
-  // Import models (will be available after DB connection)
+  // Import models (Sequelize registration)
   require('../models/User');
   require('../models/Summary');
   require('../models/Debate');
@@ -82,13 +76,6 @@ try {
         return res.status(400).json({ error: 'Please provide both URL A and URL B.' });
       }
 
-      // Validate URLs
-      const urlRegex = /^https?:\/\/.+/i;
-      if (!urlRegex.test(url1) || !urlRegex.test(url2)) {
-        return res.status(400).json({ error: 'Invalid URL format. Please provide valid URLs.' });
-      }
-
-      // Call the AI Service
       const analysisMarkdown = await aiService.compareArticles(url1, url2);
 
       res.json({
@@ -106,15 +93,12 @@ try {
   app.get('/', async (req, res) => {
     try {
       await ensureDB();
-      const dbState = require('mongoose').connection.readyState;
-      const dbStatus = dbState === 1 ? 'connected' : 'disconnected';
-      
+
       res.json({
         status: 'success',
-        message: 'News AI Summarizer API is running!',
-        version: '1.0.0',
-        database: 'MongoDB',
-        dbStatus,
+        message: 'NewsMind AI API is running!',
+        version: '1.1.0',
+        database: process.env.DATABASE_URL ? 'Postgres/Remote' : 'SQLite (Local/Ephemeral)',
         realtime: 'Serverless mode (Socket.io disabled)',
         endpoints: {
           summary: '/api/summary',
@@ -139,25 +123,15 @@ try {
     });
   });
 
-  // Error Handler
-  app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({
-      status: 'error',
-      message: err.message || 'Internal server error'
-    });
-  });
-
 } catch (error) {
   console.error('Fatal error during app initialization:', error);
   appError = error;
 
-  // Return error for all routes if app failed to initialize
   app.use((req, res) => {
     res.status(500).json({
       status: 'error',
       message: 'Server initialization failed: ' + (appError?.message || 'Unknown error'),
-      hint: 'Check if environment variables are set in Vercel dashboard'
+      hint: 'Check if DATABASE_URL or other env vars are set in Vercel'
     });
   });
 }

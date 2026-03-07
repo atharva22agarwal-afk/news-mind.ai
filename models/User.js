@@ -1,49 +1,46 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
     userId: {
-        type: String,
+        type: DataTypes.STRING,
         unique: true,
-        required: true,
-        index: true
+        allowNull: false,
+        primaryKey: true
     },
     name: {
-        type: String,
-        default: 'Anonymous User'
+        type: DataTypes.STRING,
+        defaultValue: 'Anonymous User'
     },
     email: {
-        type: String,
-        default: null
+        type: DataTypes.STRING,
+        allowNull: true
     },
     preferences: {
-        type: Object,
-        default: {
+        type: DataTypes.JSON,
+        defaultValue: {
             defaultDepth: 'medium',
             autoGenerateAudio: false,
             voiceLanguage: 'en-US'
         }
     },
     stats: {
-        type: Object,
-        default: {
+        type: DataTypes.JSON,
+        defaultValue: {
             totalSummaries: 0,
             totalDebates: 0,
             totalMessages: 0
         }
     },
     lastActive: {
-        type: Date,
-        default: Date.now
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
     }
 }, {
-    timestamps: { createdAt: 'createdAt', updatedAt: 'lastActive' },
-    collection: 'users'
+    tableName: 'users',
+    timestamps: true,
+    createdAt: 'createdAt',
+    updatedAt: 'lastActive'
 });
-
-// Index for faster queries
-userSchema.index({ userId: 1 });
-userSchema.index({ lastActive: -1 });
-
-const User = mongoose.model('User', userSchema);
 
 module.exports = User;

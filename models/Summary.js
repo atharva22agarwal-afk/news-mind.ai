@@ -1,146 +1,116 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const summarySchema = new mongoose.Schema({
+const Summary = sequelize.define('Summary', {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     userId: {
-        type: String,
-        required: true,
-        default: 'guest',
-        index: true
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'guest'
     },
     source: {
-        type: String,
-        enum: ['text', 'url', 'file'],
-        required: true
+        type: DataTypes.ENUM('text', 'url', 'file', 'search'),
+        allowNull: false
     },
     title: {
-        type: String,
-        required: true
+        type: DataTypes.STRING,
+        allowNull: false
     },
     originalContent: {
-        type: String,
-        default: null
+        type: DataTypes.TEXT,
+        allowNull: true
     },
     sourceUrl: {
-        type: String,
-        default: null
+        type: DataTypes.STRING,
+        allowNull: true
     },
     fileName: {
-        type: String,
-        default: null
+        type: DataTypes.STRING,
+        allowNull: true
     },
-    // Structured AI output fields
     headline: {
-        type: String,
-        default: null
+        type: DataTypes.STRING,
+        allowNull: true
     },
     tldr: {
-        type: String, // One-line summary
-        default: null
+        type: DataTypes.TEXT,
+        allowNull: true
     },
     summary: {
-        type: String,
-        required: true
+        type: DataTypes.TEXT,
+        allowNull: false
     },
     keyPoints: {
-        type: [String], // Array of strings
-        default: []
+        type: DataTypes.JSON, // SQLite stores this as stringified JSON
+        defaultValue: []
     },
-    // Categorized insights
     insights: {
-        political: {
-            type: String,
-            default: null
-        },
-        economic: {
-            type: String,
-            default: null
-        },
-        social: {
-            type: String,
-            default: null
-        },
-        environmental: {
-            type: String,
-            default: null
-        },
-        legal: {
-            type: String,
-            default: null
-        },
-        technological: {
-            type: String,
-            default: null
-        },
-        ethical: {
-            type: String,
-            default: null
+        type: DataTypes.JSON,
+        defaultValue: {
+            political: null,
+            economic: null,
+            social: null,
+            environmental: null,
+            legal: null,
+            technological: null,
+            ethical: null
         }
     },
-    // Analysis
     sentiment: {
-        type: String,
-        enum: ['positive', 'negative', 'neutral', 'mixed'],
-        default: null
+        type: DataTypes.STRING,
+        defaultValue: null
     },
     biasAnalysis: {
-        type: Object,
-        default: null
+        type: DataTypes.JSON,
+        defaultValue: null
     },
-    // Metadata
     wordCount: {
-        type: Number,
-        default: 0
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     },
     readingTime: {
-        type: Number, // in minutes
-        default: 0
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     },
     language: {
-        type: String,
-        default: 'en'
+        type: DataTypes.STRING,
+        defaultValue: 'en'
     },
-    // Related entities
     topics: {
-        type: [String],
-        default: []
+        type: DataTypes.JSON,
+        defaultValue: []
     },
     entities: {
-        type: [String],
-        default: []
+        type: DataTypes.JSON,
+        defaultValue: []
     },
-    // Audio generation
     audioUrl: {
-        type: String,
-        default: null
+        type: DataTypes.STRING,
+        allowNull: true
     },
     audioGeneratedAt: {
-        type: Date,
-        default: null
+        type: DataTypes.DATE,
+        allowNull: true
     },
-    // Engagement
     viewCount: {
-        type: Number,
-        default: 0
+        type: DataTypes.INTEGER,
+        defaultValue: 0
     },
     isFavorite: {
-        type: Boolean,
-        default: false
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     },
     isArchived: {
-        type: Boolean,
-        default: false
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
     }
 }, {
-    timestamps: true,
-    collection: 'summaries'
+    tableName: 'summaries',
+    timestamps: true
 });
-
-// Indexes for faster queries
-summarySchema.index({ userId: 1, createdAt: -1 });
-summarySchema.index({ userId: 1, isFavorite: 1 });
-summarySchema.index({ topics: 1 });
-summarySchema.index({ createdAt: -1 });
-
-const Summary = mongoose.model('Summary', summarySchema);
 
 module.exports = Summary;

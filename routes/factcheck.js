@@ -13,14 +13,14 @@ function factCheckLimiter(req, res, next) {
   const now = Date.now();
   const windowMs = 15 * 60 * 1000; // 15 minutes
   const max = 10;
-  
+
   const userRequests = rateLimitStore.get(userId) || [];
   const recentRequests = userRequests.filter(time => now - time < windowMs);
-  
+
   if (recentRequests.length >= max) {
     return res.status(429).json({ error: 'Too many fact-checks. Try again in 15 minutes.' });
   }
-  
+
   recentRequests.push(now);
   rateLimitStore.set(userId, recentRequests);
   next();
@@ -44,16 +44,21 @@ router.post('/', factCheckLimiter, async (req, res) => {
     // Optional: if this fact-check is linked to a debate argument, save it
     if (debateId && argumentId) {
       try {
-        // Mongoose syntax - find debate and update embedded argument
-        const debate = await Debate.findById(debateId);
+        // Sequelize syntax - find debate and update embedded argument
+        const debate = await Debate.findByPk(debateId);
         if (debate) {
-          const argument = debate.arguments.id(argumentId);
-          if (argument) {
-            argument.factCheckVerdict = result.verdict;
-            argument.factCheckConfidence = result.confidence;
-            argument.factCheckExplanation = result.explanation;
-            argument.factCheckCheckedAt = new Date();
-            await debate.save();
+          const currentArgs = [...(debate.arguments || [])];
+          const argIndex = currentArgs.findIndex(a => a.id === argumentId);
+
+          if (argIndex !== -1) {
+            currentArgs[argIndex] = {
+              ...currentArgs[argIndex],
+              factCheckVerdict: result.verdict,
+              factCheckConfidence: result.confidence,
+              factCheckExplanation: result.explanation,
+              factCheckCheckedAt: new Date()
+            };
+            await debate.update({ arguments: currentArgs });
           }
         }
       } catch (dbError) {
