@@ -4,19 +4,26 @@ require('dotenv').config();
 
 // Determine database config based on environment
 let sequelize;
+const dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
-if (process.env.DATABASE_URL) {
+if (dbUrl) {
     // Production: Use DATABASE_URL (Postgres, etc.)
-    console.log('🌐 Using Production Database (via DATABASE_URL)');
-    sequelize = new Sequelize(process.env.DATABASE_URL, {
+    console.log('🌐 Using Production Database');
+    sequelize = new Sequelize(dbUrl, {
         dialect: 'postgres',
         dialectOptions: {
             ssl: {
                 require: true,
-                rejectUnauthorized: false // Necessary for Vercel/Neon Postgres
+                rejectUnauthorized: false
             }
         },
-        logging: false
+        logging: false,
+        pool: {
+            max: 5,
+            min: 0,
+            acquire: 30000,
+            idle: 10000
+        }
     });
 } else {
     // Development: Use local SQLite

@@ -124,14 +124,16 @@ try {
   });
 
 } catch (error) {
-  console.error('Fatal error during app initialization:', error);
+  console.error('Fatal Initialization Error:', error);
   appError = error;
 
   app.use((req, res) => {
     res.status(500).json({
       status: 'error',
-      message: 'Server initialization failed: ' + (appError?.message || 'Unknown error'),
-      hint: 'Check if DATABASE_URL or other env vars are set in Vercel'
+      message: 'Server failed to initialize',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      hint: 'Check Vercel environment variables and Database connection.'
     });
   });
 }
