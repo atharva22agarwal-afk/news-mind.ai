@@ -294,6 +294,5 @@ module.exports = {
   moderateDebate,
   summarizeText,
   generateDebateResponse,
-  moderateDebate: moderateDebateLegacy,
   compareArticles
 };
