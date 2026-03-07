@@ -5,6 +5,7 @@ const API_BASE_URL = (window.location.hostname === 'localhost' || window.locatio
 
 // API Endpoints
 const API = {
+    baseURL: API_BASE_URL,
     // Summary endpoints
     summarizeURL: `${API_BASE_URL}/summary/url`,
     summarizeText: `${API_BASE_URL}/summary/text`,
