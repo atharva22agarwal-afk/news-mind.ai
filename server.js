@@ -11,7 +11,7 @@ const httpServer = http.createServer(app);
 // Socket.io setup for real-time features
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:5500', 'http://127.0.0.1:5500', 'http://localhost:5501', 'http://127.0.0.1:5501'],
+    origin: '*', // Allow all origins in production for simplicity, or specify domains
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -57,8 +57,8 @@ debateRouter.setIO(io);
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5500', 'http://127.0.0.1:5500', 'http://localhost:5501', 'http://127.0.0.1:5501'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
@@ -117,17 +117,18 @@ app.post('/api/tools/compare', async (req, res) => {
   }
 });
 
-// Health Check
-app.get('/', async (req, res) => {
+// Health Check / API Status
+app.get('/api/status', async (req, res) => {
   try {
     const { sequelize } = require('./config/database');
+    const hasPg = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
     await sequelize.authenticate();
 
     res.json({
       status: 'success',
       message: 'News AI Summarizer API is running!',
-      version: '1.0.0',
-      database: 'SQLite',
+      version: '1.3.0',
+      database: hasPg ? 'Postgres (Production)' : 'SQLite (Local)',
       dbStatus: 'connected',
       realtime: 'Socket.io enabled',
       endpoints: {
@@ -143,6 +144,14 @@ app.get('/', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Serve static frontend files
+const path = require('path');
+app.use(express.static(__dirname));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // 404 Handler
@@ -173,10 +182,9 @@ const startServer = async () => {
     console.log('✅ SQLite Database Connected & Synced');
 
     httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📱 Access from other devices: http://YOUR_IP:${PORT}`);
-      console.log(`📚 API Documentation: http://localhost:${PORT}/`);
+      console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🔌 Socket.io enabled for real-time features`);
+      console.log(`🌐 Application is live!`);
     });
   } catch (err) {
     console.error('❌ Failed to start server:', err);
