@@ -11,6 +11,7 @@ if (dbUrl) {
     console.log('🌐 Using Production Database');
     sequelize = new Sequelize(dbUrl, {
         dialect: 'postgres',
+        dialectModule: require('pg'), // Explicitly pass pg for Vercel
         dialectOptions: {
             ssl: {
                 require: true,
