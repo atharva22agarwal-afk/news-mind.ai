@@ -4,49 +4,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NewsMind War Room</title>
+    <title>NewsMind Dashboard</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,700;1,300&family=Inter:wght@400;600;700&display=swap"
         rel="stylesheet">
     <script src="api-config.js"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
 
     <style>
         :root {
-            --bg-charcoal: #0F0F11;
-            --surface-glass: rgba(30, 30, 35, 0.6);
-            --surface-glass-hover: rgba(40, 40, 45, 0.8);
-            --border-glass: rgba(255, 255, 255, 0.08);
+            --bg-cream: #FDFCF8;
+            --text-dark: #3D3531;
             --primary-orange: #E76F51;
             --accent-yellow: #E9C46A;
-            --text-main: #ECECEC;
-            --text-muted: #888888;
-            --neon-glow: 0 0 15px rgba(231, 111, 81, 0.3);
+            --surface-white: #FFFFFF;
+            --border-glass: rgba(0, 0, 0, 0.08);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            outline: none;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-charcoal);
-            color: var(--text-main);
+            background-color: var(--bg-cream);
+            color: var(--text-dark);
             height: 100vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            background-image:
-                radial-gradient(circle at 10% 20%, rgba(231, 111, 81, 0.08) 0%, transparent 20%),
-                radial-gradient(circle at 90% 80%, rgba(42, 157, 143, 0.08) 0%, transparent 20%);
         }
 
-        /* --- NAVIGATION --- */
+        h1, h2, h3 { font-family: 'Merriweather', serif; }
+        a { text-decoration: none; color: inherit; }
+
+        /* Navigation */
         nav {
             height: 60px;
             border-bottom: 1px solid var(--border-glass);
@@ -54,8 +49,8 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 25px;
-            background: rgba(15, 15, 17, 0.8);
-            backdrop-filter: blur(10px);
+            background: rgba(253, 252, 248, 0.8);
+            backdrop-filter: blur(15px);
             z-index: 100;
         }
 
@@ -65,15 +60,29 @@
             align-items: center;
             gap: 10px;
             font-size: 1.1rem;
-            color: var(--text-main);
-            letter-spacing: -0.5px;
-            text-decoration: none;
+            cursor: pointer;
         }
 
         .logo i {
             color: var(--primary-orange);
             font-size: 1.4rem;
         }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            margin-left: 40px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #888;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .nav-link:hover, .nav-link.active { color: var(--primary-orange); }
 
         .user-profile {
             display: flex;
@@ -90,7 +99,7 @@
 
         .user-profile:hover {
             border-color: var(--primary-orange);
-            background: var(--surface-glass-hover);
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .avatar {
@@ -110,12 +119,12 @@
             position: absolute;
             top: 45px;
             right: 0;
-            background: var(--bg-charcoal);
+            background: white;
             border: 1px solid var(--border-glass);
             border-radius: 8px;
             padding: 10px;
             display: none;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             z-index: 200;
         }
 
@@ -133,53 +142,24 @@
         }
 
         .logout-btn:hover {
-            background: rgba(255, 77, 77, 0.1);
+            background: rgba(255, 77, 77, 0.05);
             border-radius: 4px;
         }
 
-        /* --- LAYOUT GRID --- */
-        .war-room-container {
-            display: grid;
-            grid-template-columns: 260px 1fr 380px;
+        .app-container {
+            display: flex;
             height: calc(100vh - 60px);
             gap: 0;
         }
 
-        /* --- LEFT SIDEBAR (LIBRARY) --- */
+        /* Sidebar */
         .sidebar {
-            background: var(--surface-glass);
+            width: 300px;
+            background: var(--surface-white);
             border-right: 1px solid var(--border-glass);
-            padding: 20px;
             display: flex;
             flex-direction: column;
-        }
-
-        .btn-new {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, var(--primary-orange), #d65a3b);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: var(--neon-glow);
-            transition: 0.3s;
-        }
-
-        .btn-new:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(231, 111, 81, 0.5);
-        }
-
-        .history-list {
-            margin-top: 20px;
-            overflow-y: auto;
-            flex: 1;
+            padding: 20px;
         }
 
         .history-item {
@@ -190,362 +170,137 @@
             display: flex;
             gap: 10px;
             align-items: center;
-            color: var(--text-muted);
             transition: 0.2s;
             border: 1px solid transparent;
         }
 
-        .history-item:hover {
-            background: var(--border-glass);
-            color: var(--text-main);
-        }
+        .history-item:hover { background: #f9f9f9; }
+        .history-item.active { background: #fdf2f0; border-color: var(--primary-orange); color: var(--primary-orange); }
 
-        .history-item.active {
-            background: rgba(231, 111, 81, 0.1);
-            border-color: var(--primary-orange);
-            color: var(--primary-orange);
-        }
-
-        /* --- CENTER STAGE (COMPARISON/INTEL) --- */
-        .main-stage {
-            position: relative;
-            padding: 30px 40px;
-            overflow-y: auto;
-            background: transparent;
-        }
-
-        /* Omni-Input Styling */
-        .war-room-input {
-            background: var(--surface-glass);
-            border: 1px solid var(--border-glass);
-            border-radius: 16px;
-            padding: 25px;
-            backdrop-filter: blur(20px);
-            margin-bottom: 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        }
-
-        .input-header {
+        .icon-bg {
+            width: 32px;
+            height: 32px;
+            background: #fdf2f0;
+            border-radius: 8px;
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
             align-items: center;
+            justify-content: center;
+            color: var(--primary-orange);
         }
 
-        .mode-toggle {
-            display: flex;
-            background: #000;
-            border-radius: 20px;
-            padding: 4px;
-        }
-
-        .mode-btn {
-            padding: 6px 16px;
-            border-radius: 16px;
-            color: #666;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: 0.3s;
-        }
-
-        .mode-btn.active {
-            background: var(--text-main);
-            color: #000;
-        }
-
-        .compare-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        input[type="text"],
-        textarea {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-glass);
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-family: 'Inter';
-            transition: 0.3s;
-        }
-
-        input:focus,
-        textarea:focus {
-            border-color: var(--primary-orange);
-            box-shadow: 0 0 0 2px rgba(231, 111, 81, 0.2);
-        }
-
-        .btn-analyze {
-            width: 100%;
-            margin-top: 15px;
-            padding: 12px;
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            position: relative;
             background: transparent;
-            border: 1px solid var(--primary-orange);
-            color: var(--primary-orange);
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 0.8rem;
         }
 
-        .btn-analyze:hover {
-            background: var(--primary-orange);
-            color: white;
+        .summary-container {
+            padding: 40px 60px 100px;
+            overflow-y: auto;
+            height: 100%;
+            max-width: 900px;
+            margin: 0 auto;
         }
 
-        /* Output Area */
-        .intel-output {
-            color: #ccc;
+        .summary-container p {
             line-height: 1.7;
-            display: none;
-            animation: fadeIn 0.5s;
-            width: 100%;
+            margin-bottom: 1.2em;
+            color: #444;
         }
 
-        .intel-card {
-            background: var(--surface-glass);
-            border: 1px solid var(--border-glass);
+        .summary-container h1 {
+            font-size: 2.2rem;
+            margin-bottom: 0.5em;
+            color: var(--text-dark);
+        }
+
+        .input-bar-container {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 700px;
+            background: var(--surface-white);
+            padding: 8px;
             border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-        }
-
-        /* Markdown Tables Override for Dark Mode */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 0.9rem;
-        }
-
-        th {
-            background: rgba(231, 111, 81, 0.1);
-            color: var(--primary-orange);
-            padding: 12px;
-            text-align: left;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
             border: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        td {
-            padding: 12px;
-            border: 1px solid var(--border-glass);
-            color: #ccc;
-            vertical-align: top;
+        .main-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 0.95rem;
+            outline: none;
+            color: var(--text-dark);
+            padding-left: 10px;
         }
 
-        /* --- RIGHT SIDEBAR (LIVE FEED) --- */
-        .live-feed-panel {
+        .social-sidebar {
+            width: 300px;
+            background: var(--surface-white);
             border-left: 1px solid var(--border-glass);
-            background: rgba(15, 15, 17, 0.4);
-            backdrop-filter: blur(10px);
+            padding: 20px;
             display: flex;
             flex-direction: column;
         }
 
-        .feed-header {
-            padding: 20px;
-            border-bottom: 1px solid var(--border-glass);
+        .moderator-banner {
+            background: #fdf2f0;
+            border: 1px solid #f9e0db;
+            padding: 12px;
+            border-radius: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 20px;
         }
 
-        .live-badge {
-            font-size: 0.7rem;
-            color: #4ADE80;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 700;
-        }
-
-        .live-dot {
-            width: 6px;
-            height: 6px;
+        .status-dot {
+            width: 8px;
+            height: 8px;
             background: #4ADE80;
             border-radius: 50%;
             box-shadow: 0 0 8px #4ADE80;
-            animation: pulse 1.5s infinite;
         }
 
-        .feed-stream {
+        .chat-area {
             flex: 1;
             overflow-y: auto;
-            padding: 0 20px;
-        }
-
-        .tweet-card {
-            padding: 20px 0;
-            border-bottom: 1px solid var(--border-glass);
-            animation: slideIn 0.3s ease-out;
-        }
-
-        .tweet-meta {
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .tweet-author {
-            color: var(--primary-orange);
-            font-weight: 700;
-        }
-
-        .tweet-content {
+        .chat-bubble {
+            padding: 10px 14px;
+            border-radius: 12px;
             font-size: 0.9rem;
-            color: #ddd;
-            line-height: 1.5;
-            margin-bottom: 8px;
+            max-width: 85%;
         }
 
-        .tweet-actions {
-            display: flex;
-            gap: 15px;
-            font-size: 1.1rem;
-            color: #666;
+        .ai-msg {
+            background: #fdfcf8;
+            border: 1px solid #eee;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
         }
 
-        .tweet-actions i:hover {
-            color: var(--primary-orange);
-            cursor: pointer;
-        }
-
-        .chat-input-area {
-            padding: 20px;
-            border-top: 1px solid var(--border-glass);
-            background: var(--bg-charcoal);
-        }
-
-        .chat-tools {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .tool-btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-glass);
-            color: #aaa;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .tool-btn:hover {
-            background: rgba(231, 111, 81, 0.1);
-            color: var(--primary-orange);
-            border-color: var(--primary-orange);
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .chat-input {
-            width: 100%;
-            background: #222;
-            border: none;
-            padding: 12px 40px 12px 15px;
-            border-radius: 25px;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        .send-btn {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 30px;
-            height: 30px;
+        .user-msg {
             background: var(--primary-orange);
-            border-radius: 50%;
-            border: none;
             color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
         }
 
-        /* Animations */
-        @keyframes pulse {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.4;
-            }
-
-            100% {
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateY(10px);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-
-        @media (max-width: 1100px) {
-            .war-room-container {
-                grid-template-columns: 80px 1fr 300px;
-            }
-
-            .sidebar span {
+        @media (max-width:1000px) {
+            .sidebar {
                 display: none;
             }
         }
@@ -553,266 +308,133 @@
 </head>
 
 <body>
-
     <nav>
-        <a href="index.html" class="logo"><i class="ph-fill ph-brain"></i> NewsMind OS <span
-                style="font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px; color:#888;">WAR
-                ROOM</span></a>
+        <div style="display:flex; align-items:center;">
+            <a href="dashboard.html" class="logo"><i class="ph-fill ph-brain"></i> NewsMind.AI</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link active">Dashboard</a>
+                <a href="war-room.html" class="nav-link">War Room</a>
+                <a href="chat.html" class="nav-link">Chat</a>
+                <a href="compare.html" class="nav-link">Compare</a>
+            </div>
+        </div>
         <div class="user-profile" onclick="toggleLogoutMenu()">
-            <span id="user-name-display" style="font-size: 0.85rem;">Guest</span>
-            <div class="avatar" id="user-avatar">G</div>
+            <span id="user-name-display">Loading...</span>
+            <div class="avatar" id="user-avatar">?</div>
             <div class="logout-menu" id="logout-menu">
                 <div class="logout-btn" onclick="handleLogout()">Logout</div>
             </div>
         </div>
     </nav>
 
-    <div class="war-room-container">
-        <!-- 1. LEFT SIDEBAR -->
+    <div class="app-container">
         <aside class="sidebar">
-            <button onclick="resetDashboard()" class="btn-new">
-                <i class="ph-bold ph-plus"></i> <span>New Operation</span>
+            <h3
+                style="font-size:0.75rem; color:#999; text-transform:uppercase; letter-spacing:1px; margin-bottom:15px;">
+                Your Intelligence</h3>
+            <div id="history-container" style="flex:1; overflow-y:auto;"></div>
+            <button onclick="handleNewProject()"
+                style="margin-top:20px; padding:12px; background:var(--text-dark); color:white; border-radius:8px; border:none; cursor:pointer; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <i class="ph-bold ph-plus"></i> New Project
             </button>
-            <div
-                style="margin-top:25px; font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:1px; font-weight:700;">
-                Recent Intel</div>
-            <div class="history-list" id="history-container">
-                <!-- History Items Injected Here -->
-            </div>
         </aside>
 
-        <!-- 2. MAIN STAGE (COMPARISON/ANALYSIS) -->
-        <main class="main-stage">
-
-            <div class="war-room-input" id="inputSection">
-                <div class="input-header">
-                    <h2 style="font-size:1.2rem; display:flex; align-items:center; gap:8px;"><i
-                            class="ph-fill ph-crosshair"></i> Intelligence Gathering</h2>
-                    <div class="mode-toggle">
-                        <div class="mode-btn active" onclick="switchMode('compare')">Compare</div>
-                        <div class="mode-btn" onclick="switchMode('summary')">Analyze</div>
-                    </div>
-                </div>
-
-                <!-- Compare Mode -->
-                <div id="compare-mode" style="display:block;">
-                    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Target two sources for
-                        bias detection.</p>
-                    <div class="compare-grid">
-                        <input type="text" id="urlA" placeholder="Source Alpha (URL)...">
-                        <input type="text" id="urlB" placeholder="Source Bravo (URL)...">
-                    </div>
-                    <button onclick="runWarRoomAnalysis()" class="btn-analyze" id="analyze-btn">Initiate Deep
-                        Comparison</button>
-                </div>
-
-                <!-- Summary Mode -->
-                <div id="summary-mode" style="display:none;">
-                    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Paste content for AI
-                        intelligence extracting.</p>
-                    <textarea id="textInput" rows="3" placeholder="Paste intelligence text or URL here..."
-                        style="resize:none;"></textarea>
-                    <button onclick="runSummary()" class="btn-analyze" id="summary-btn">Run Intelligence Probe</button>
+        <main class="main-content">
+            <div id="contentText" class="summary-container">
+                <div style="text-align:center; padding:100px 50px; color:#999;">
+                    <i class="ph ph-sparkle" style="font-size:4rem; color:var(--primary-orange); opacity:0.3;"></i>
+                    <h2 style="margin-top:20px; color:#444;">Welcome to NewsMind</h2>
+                    <p>Enter a URL or text below to generate a premium intelligence report.</p>
                 </div>
             </div>
 
-            <!-- RESULTS AREA -->
-            <div id="intel-display" class="intel-output">
-                <div class="intel-card">
-                    <div
-                        style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border-glass); padding-bottom:15px;">
-                        <h3 style="color:var(--primary-orange);"><i class="ph-fill ph-file-text"></i> Tactical Report
-                        </h3>
-                        <div style="font-family:'JetBrains Mono'; font-size:0.8rem; color:#666;" id="intel-status">
-                            STATUS: STANDBY</div>
-                    </div>
-                    <div id="report-content" style="font-size: 1rem;"></div>
-                </div>
+            <div class="input-bar-container">
+                <i class="ph ph-plus" style="font-size:1.2rem; color:#888; padding-left:10px; cursor:pointer;"
+                    onclick="handleFileClick()"></i>
+                <input type="text" class="main-input" id="main-input" placeholder="Paste URL or type intel text...">
+                <button onclick="handleInputSubmit()"
+                    style="width:40px; height:40px; border-radius:50%; background:var(--primary-orange); border:none; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                    <i class="ph-fill ph-paper-plane-right"></i>
+                </button>
             </div>
-
         </main>
 
-        <!-- 3. RIGHT SIDEBAR (LIVE FEED) -->
-        <aside class="live-feed-panel">
-            <div class="feed-header">
-                <div style="font-weight:700; font-size:0.95rem;">Global Intelligence Feed</div>
-                <div class="live-badge">
-                    <div class="live-dot"></div> Live
+        <aside class="social-sidebar">
+            <div class="moderator-banner">
+                <div><strong>AI Analyst</strong>
+                    <div style="font-size:0.7rem; opacity:0.8;">Operational</div>
                 </div>
+                <div class="status-dot"></div>
             </div>
-
-            <div class="feed-stream" id="feed-stream">
-                <!-- Public Feed Injected Here -->
+            <div class="chat-area" id="chatFeed">
+                <div class="chat-bubble ai-msg"><strong>AI:</strong> Hello! Generate a summary to begin our forensic
+                    analysis.</div>
             </div>
-
-            <!-- CHAT INPUT -->
-            <div class="chat-input-area">
-                <div class="chat-tools">
-                    <button class="tool-btn" onclick="insertTemplate('debate')"><i class="ph-bold ph-chats"></i>
-                        Debate</button>
-                    <button class="tool-btn" onclick="insertTemplate('factcheck')"><i
-                            class="ph-bold ph-check-circle"></i> Verify</button>
-                    <button class="tool-btn"
-                        style="margin-left:auto; color:var(--primary-orange); border-color:rgba(231,111,81,0.3);"
-                        onclick="pushToMain()"><i class="ph-bold ph-arrow-left"></i> Analyze This</button>
-                </div>
-                <div class="input-wrapper">
-                    <input type="text" id="feedInput" class="chat-input" placeholder="Broadcast to feed...">
-                    <button class="send-btn" onclick="postToFeed()"><i
-                            class="ph-fill ph-paper-plane-right"></i></button>
-                </div>
+            <div
+                style="display:flex; gap:10px; margin-top:20px; background:#f9f9f9; padding:10px; border-radius:12px; border:1px solid #eee;">
+                <input type="text" id="chatInput" placeholder="Ask questions about this intel..."
+                    style="flex:1; border:none; background:transparent; font-size:0.9rem; outline:none;">
+                <button onclick="sendMsg()"
+                    style="background:none; border:none; color:var(--primary-orange); cursor:pointer;"><i
+                        class="ph-bold ph-paper-plane-right" style="font-size:1.2rem;"></i></button>
             </div>
         </aside>
     </div>
 
+    <input type="file" id="fileInput" accept=".pdf,.txt" style="display:none;">
+
     <script>
-        // --- AUTH & STATE ---
         const userId = localStorage.getItem('userId');
-        const userName = localStorage.getItem('userName') || 'Guest';
+        const userName = localStorage.getItem('userName') || 'User';
         if (!userId) window.location.href = 'login.html';
 
-        document.getElementById('user-name-display').innerText = userName;
-        document.getElementById('user-avatar').innerText = userName.charAt(0).toUpperCase();
+        document.getElementById('user-name-display').textContent = userName;
+        document.getElementById('user-avatar').textContent = userName.charAt(0).toUpperCase();
 
-        const socket = io();
-
-        // --- UI UTILS ---
-        function switchMode(mode) {
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            if (mode === 'compare') {
-                document.querySelectorAll('.mode-btn')[0].classList.add('active');
-                document.getElementById('compare-mode').style.display = 'block';
-                document.getElementById('summary-mode').style.display = 'none';
-            } else {
-                document.querySelectorAll('.mode-btn')[1].classList.add('active');
-                document.getElementById('compare-mode').style.display = 'none';
-                document.getElementById('summary-mode').style.display = 'block';
-            }
-        }
+        let currentSummaryId = null;
 
         function toggleLogoutMenu() { document.getElementById('logout-menu').classList.toggle('active'); }
         function handleLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
-        function showLoading(msg) {
-            const output = document.getElementById('intel-display');
-            const report = document.getElementById('report-content');
-            output.style.display = 'block';
-            document.getElementById('intel-status').innerText = 'STATUS: ACQUIRING...';
-            report.innerHTML = `<div style="text-align:center; padding:60px; color:var(--primary-orange);"><i class="ph ph-spinner ph-spin" style="font-size:2.5rem;"></i><br><br>${msg}</div>`;
-        }
-
-        // --- FEED LOGIC (REAL-TIME) ---
-        async function loadFeed() {
-            try {
-                const res = await fetch(API.getPublicFeed);
-                const data = await res.json();
-                if (data.success) {
-                    const stream = document.getElementById('feed-stream');
-                    stream.innerHTML = '';
-                    data.data.forEach(p => addPostToUI(p));
-                }
-            } catch (e) { }
-        }
-
-        function addPostToUI(post, isNew = false) {
-            const stream = document.getElementById('feed-stream');
-            const div = document.createElement('div');
-            div.className = 'tweet-card';
-            const time = new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            div.innerHTML = `
-                <div class="tweet-meta">
-                    <span class="tweet-author">@${post.authorName || 'anonymous'}</span>
-                    <span>${time}</span>
-                </div>
-                <div class="tweet-content">${post.content}</div>
-                <div class="tweet-actions">
-                    <i class="ph ph-heart"></i>
-                    <i class="ph ph-arrow-square-out" onclick="runOnInput('${post.content.replace(/'/g, "\\'")}')" title="Analyze this content"></i>
-                </div>
-            `;
-            if (isNew) stream.prepend(div); else stream.appendChild(div);
-        }
-
-        async function postToFeed() {
-            const input = document.getElementById('feedInput');
-            const content = input.value.trim();
-            if (!content) return;
-
-            try {
-                const res = await fetch(API.postToFeed, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content, authorName: userName, authorId: userId })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    socket.emit('new-public-post', data.data);
-                    input.value = '';
-                }
-            } catch (e) { }
-        }
-
-        socket.on('public-post-broadcast', (post) => {
-            addPostToUI(post, true);
-        });
-
-        // --- ANALYSIS LOGIC ---
-        async function runWarRoomAnalysis() {
-            const urlA = document.getElementById('urlA').value.trim();
-            const urlB = document.getElementById('urlB').value.trim();
-            if (!urlA || !urlB) return alert("Alpha and Bravo targets required.");
-
-            showLoading("Parsing Sources & Detecting Bias...");
-
-            try {
-                const res = await fetch(API.toolsCompare, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url1: urlA, url2: urlB })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    document.getElementById('intel-status').innerText = 'STATUS: VERIFIED';
-                    document.getElementById('report-content').innerHTML = marked.parse(data.data);
-                    loadHistory();
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch (e) {
-                document.getElementById('report-content').innerHTML = `<p style="color:red">Intelligence failure: ${e.message}</p>`;
-            }
-        }
-
-        async function runSummary() {
-            const input = document.getElementById('textInput').value.trim();
+        async function handleInputSubmit() {
+            const input = document.getElementById('main-input').value.trim();
             if (!input) return;
-
-            showLoading("Extracting Core Intel...");
-
+            const isUrl = input.startsWith('http');
+            showLoading("Synthesizing Intelligence...");
             try {
-                const isUrl = input.startsWith('http');
-                const endpoint = isUrl ? API.summarizeURL : API.summarizeText;
-                const body = isUrl ? { url: input, userId } : { text: input, userId };
-
-                const res = await fetch(endpoint, {
+                const res = await fetch(isUrl ? API.summarizeURL : API.summarizeText, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
+                    body: JSON.stringify({ [isUrl ? 'url' : 'text']: input, userId })
                 });
                 const data = await res.json();
-
                 if (data.success) {
-                    document.getElementById('intel-status').innerText = 'STATUS: COMPLETE';
-                    const summary = data.data;
-                    let html = `## ${summary.title}\n\n${summary.summary}\n\n### Key Highlights:\n` +
-                        summary.keyPoints.map(p => `- ${p}`).join('\n');
-                    document.getElementById('report-content').innerHTML = marked.parse(html);
+                    displaySummary(data.data);
+                    currentSummaryId = data.data.id;
                     loadHistory();
                 }
-            } catch (e) {
-                document.getElementById('report-content').innerHTML = `<p style="color:red">Analysis failure: ${e.message}</p>`;
-            }
+            } catch (e) { showError(e.message); }
+            document.getElementById('main-input').value = '';
+        }
+
+        function displaySummary(data) {
+            const container = document.getElementById('contentText');
+            const bias = data.insights?.bias || data.biasAnalysis?.label || 'Neutral';
+            const sentiment = data.insights?.sentiment || data.sentiment || 'Objective';
+
+            container.innerHTML = `
+                <div style="border-bottom:2px solid #f0f0f0; padding-bottom:25px; margin-bottom:30px;">
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <span style="background:var(--accent-yellow); font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform:uppercase;">Tactical Briefing</span>
+                        <span style="background:#f0f0f0; font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform:uppercase;">${bias}</span>
+                        <span style="background:#f0f0f0; font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform:uppercase;">${sentiment}</span>
+                    </div>
+                    <h1 style="margin:10px 0;">${data.title}</h1>
+                    <p style="font-size:0.85rem; color:#888;">AI Forensic Analysis • ${new Date().toLocaleDateString()}</p>
+                </div>
+                <div class="summary-body">${marked.parse(data.summary)}</div>
+                ${data.insights?.missingContext ? `<div style="margin-top:30px; padding:20px; background:#FFF4E5; border-radius:12px; border-left:4px solid var(--primary-orange); font-size:0.9rem;"><strong>Forensic Note:</strong> ${data.insights.missingContext}</div>` : ''}
+            `;
         }
 
         async function loadHistory() {
@@ -823,64 +445,50 @@
                     const container = document.getElementById('history-container');
                     container.innerHTML = '';
                     data.data.summaries.forEach(s => {
-                        const div = document.createElement('div');
-                        div.className = 'history-item';
-                        div.innerHTML = `<i class="ph ph-lightning"></i> <span>${s.title.substring(0, 20)}...</span>`;
-                        div.onclick = () => loadHistoricalIntel(s.id);
-                        container.appendChild(div);
+                        const item = document.createElement('div');
+                        item.className = 'history-item';
+                        item.innerHTML = `
+                            <div class="icon-bg"><i class="ph ph-file-text"></i></div>
+                            <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:150px;">${s.title}</div>
+                        `;
+                        item.onclick = () => loadSpecificSummary(s.id || s._id);
+                        container.appendChild(item);
                     });
                 }
             } catch (e) { }
         }
 
-        async function loadHistoricalIntel(id) {
-            showLoading("Rekindling Historical Intel...");
-            try {
-                const res = await fetch(API.getSummary(id));
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('intel-status').innerText = 'STATUS: HISTORICAL';
-                    const s = data.data;
-                    let html = `## ${s.title}\n\n${s.summary}\n\n### Key Highlights:\n` +
-                        s.keyPoints.map(p => `- ${p}`).join('\n');
-                    document.getElementById('report-content').innerHTML = marked.parse(html);
-                }
-            } catch (e) { }
+        async function loadSpecificSummary(id) {
+            const res = await fetch(API.getSummary(id));
+            const data = await res.json();
+            if (data.success) displaySummary(data.data);
         }
 
-        function resetDashboard() {
-            document.getElementById('intel-display').style.display = 'none';
-            document.getElementById('urlA').value = '';
-            document.getElementById('urlB').value = '';
-            document.getElementById('textInput').value = '';
+        function showLoading(msg) {
+            document.getElementById('contentText').innerHTML = `<div style="text-align:center; padding:100px;"><i class="ph ph-spinner ph-spin" style="font-size:3rem; color:var(--primary-orange);"></i><p style="margin-top:20px;">${msg}</p></div>`;
         }
 
-        function insertTemplate(type) {
-            const input = document.getElementById('feedInput');
-            input.value = type === 'debate' ? "[DEBATE]: " : "[VERIFY]: ";
-            input.focus();
+        window.onload = loadHistory;
+
+        // Enter key listeners
+        document.getElementById('main-input').addEventListener('keypress', e => { if (e.key === 'Enter') handleInputSubmit(); });
+        document.getElementById('chatInput').addEventListener('keypress', e => { if (e.key === 'Enter') sendMsg(); });
+
+        async function sendMsg() {
+            const inp = document.getElementById('chatInput');
+            const txt = inp.value.trim();
+            if (!txt) return;
+            const feed = document.getElementById('chatFeed');
+            feed.innerHTML += `<div class="chat-bubble user-msg">${txt}</div>`;
+            inp.value = '';
+            feed.scrollTop = feed.scrollHeight;
+
+            // Basic AI reaction
+            setTimeout(() => {
+                feed.innerHTML += `<div class="chat-bubble ai-msg"><strong>AI:</strong> Analyzing your request... Forensic data indicates high relevance to the current briefing.</div>`;
+                feed.scrollTop = feed.scrollHeight;
+            }, 600);
         }
-
-        function pushToMain() {
-            const val = document.getElementById('feedInput').value;
-            if (val) { switchMode('summary'); document.getElementById('textInput').value = val; document.getElementById('feedInput').value = ''; }
-        }
-
-        function runOnInput(txt) {
-            switchMode('summary');
-            document.getElementById('textInput').value = txt;
-            runSummary();
-        }
-
-        // --- INIT ---
-        window.addEventListener('load', () => {
-            loadFeed();
-            loadHistory();
-        });
-
-        document.getElementById('feedInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') postToFeed();
-        });
     </script>
 </body>
 

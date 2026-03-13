@@ -1,6 +1,6 @@
 // API Configuration
 const API_BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:5000/api'
+    ? 'http://localhost:3002/api'
     : '/api';
 
 // API Endpoints
@@ -78,3 +78,7 @@ async function uploadFile(url, formData) {
         throw error;
     }
 }
+
+// Expose configuration globally for client scripts
+window.API = API;
+window.API_BASE_URL = API_BASE_URL;

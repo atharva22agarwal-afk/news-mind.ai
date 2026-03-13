@@ -77,40 +77,51 @@ router.post('/url', async (req, res) => {
     // Extract content from URL
     const extracted = await extractFromURL(url);
 
-    // Generate summary - returns an object with summary, keyPoints, etc.
-    const result = await aiService.summarizeText(extracted.content, depth);
-
-    // Generate title if not available
-    const title = extracted.title || result.title || aiService.generateTitle(extracted.content);
+    // Generate deep analysis - returns structured object
+    const analysis = await deepSummarize(extracted.content, url);
 
     // Prepare response data
     const responseData = {
-      title,
-      summary: result.summary,
-      keyPoints: result.keyPoints,
-      wordCount: result.wordCount,
-      readingTime: result.readingTime,
+      title: analysis.headline,
+      summary: analysis.tldr,
+      keyPoints: analysis.keyFacts || [],
+      wordCount: extracted.content.split(/\s+/).length,
+      readingTime: Math.ceil(extracted.content.split(/\s+/).length / 200),
       depth,
       source: 'url',
-      sourceUrl: url
+      sourceUrl: url,
+      insights: {
+        bias: analysis.biasLabel,
+        biasScore: analysis.biasScore,
+        sentiment: analysis.sentiment,
+        missingContext: analysis.missingContext
+      }
     };
 
     // 2. SAVE TO CACHE
     cache.set(cacheKey, responseData);
-    console.log(`💾 Cached summary for: ${url}`);
 
-    // Save to database (Sequelize syntax)
+    // Save to database
     const summaryDoc = await Summary.create({
       userId,
-      title,
+      title: analysis.headline,
+      headline: analysis.headline,
+      tldr: analysis.tldr,
       originalContent: extracted.content,
-      summary: result.summary,
-      keyPoints: result.keyPoints,
+      summary: analysis.tldr, // Dashboard expects 'summary' field
+      keyPoints: analysis.keyFacts || [],
+      sentiment: analysis.sentiment,
+      biasAnalysis: {
+        score: analysis.biasScore,
+        label: analysis.biasLabel,
+        warning: analysis.missingContext,
+        flags: analysis.credibilityFlags || []
+      },
       depth,
       source: 'url',
       sourceUrl: url,
-      wordCount: result.wordCount,
-      readingTime: result.readingTime
+      wordCount: responseData.wordCount,
+      readingTime: responseData.readingTime
     });
 
     console.log(`✅ Summary created: ${summaryDoc.id}`);
@@ -250,37 +261,41 @@ router.post('/text', async (req, res) => {
       }
     }
 
-    // Generate summary - returns an object
-    const result = await aiService.summarizeText(finalText, depth);
+    // Generate Deep Analysis
+    const analysis = await deepSummarize(finalText, sourceLink || '');
 
-    // Generate title if not provided
-    const finalTitle = title || result.title || aiService.generateTitle(text);
-
-    // Save to database (Sequelize syntax)
+    // Save to database
     const summaryDoc = await Summary.create({
       userId,
-      title: finalTitle,
+      title: analysis.headline,
+      headline: analysis.headline,
+      tldr: analysis.tldr,
       originalContent: finalText,
-      summary: result.summary,
-      keyPoints: result.keyPoints,
+      summary: analysis.tldr,
+      keyPoints: analysis.keyFacts || [],
+      sentiment: analysis.sentiment,
+      biasAnalysis: {
+        score: analysis.biasScore,
+        label: analysis.biasLabel,
+        warning: analysis.missingContext,
+        flags: analysis.credibilityFlags || []
+      },
       depth,
       source: sourceType,
       sourceUrl: sourceLink,
-      wordCount: result.wordCount,
-      readingTime: result.readingTime
+      wordCount: finalText.split(/\s+/).length,
+      readingTime: Math.ceil(finalText.split(/\s+/).length / 200)
     });
-
-    console.log(`✅ Summary created: ${summaryDoc.id}`);
 
     res.json({
       success: true,
       data: {
         id: summaryDoc.id,
-        title: finalTitle,
-        summary: result.summary,
-        keyPoints: result.keyPoints,
-        wordCount: result.wordCount,
-        readingTime: result.readingTime,
+        title: analysis.headline,
+        summary: analysis.tldr,
+        keyPoints: analysis.keyFacts,
+        wordCount: summaryDoc.wordCount,
+        readingTime: summaryDoc.readingTime,
         depth,
         source: sourceType,
         sourceUrl: sourceLink,

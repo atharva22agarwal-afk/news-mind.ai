@@ -60,6 +60,9 @@ app.set('io', io);
 const debateRouter = require('./routes/debate');
 debateRouter.setIO(io);
 
+// Store for route mounting
+app.set('debateRouter', debateRouter);
+
 // Middleware
 app.use(cors({
   origin: '*',
@@ -86,7 +89,7 @@ const aiService = require('./services/aiService');
 
 // Routes
 app.use('/api/summary', require('./routes/summary'));
-app.use('/api/debate', require('./routes/debate'));
+app.use('/api/debate', debateRouter);
 app.use('/api/history', require('./routes/history'));
 app.use('/api/polls', require('./routes/polls'));
 app.use('/api/research', require('./routes/research'));
@@ -169,12 +172,34 @@ app.use((req, res) => {
   });
 });
 
-// Error Handler
+// Principal Architect's High-Resilience Error Handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({
+  console.error('SERVER_FAULT:', err.stack);
+
+  // Handle Gemini/AI Rate Limits (429)
+  if (err.message?.includes('429') || err.status === 429 || err.code === 'RESOURCE_EXHAUSTED') {
+    return res.status(429).json({
+      status: 'error',
+      code: 'ENTROPY_LIMIT_REACHED',
+      message: 'AI Model is currently saturated. Back-off triggered. Please retry in 60 seconds.',
+      verdict: 'High demand on Semantic Gravity Engine.'
+    });
+  }
+
+  // Handle Model Overload (500/503)
+  if (err.message?.includes('500') || err.message?.includes('503') || err.code === 'INTERNAL') {
+    return res.status(503).json({
+      status: 'error',
+      code: 'NEURAL_OVERLOAD',
+      message: 'The AI service is experiencing high latency or internal faults.',
+      verdict: 'Upstream Provider Latency'
+    });
+  }
+
+  res.status(err.status || 500).json({
     status: 'error',
-    message: err.message || 'Internal server error'
+    message: err.message || 'Internal server error',
+    manifest: 'CORE_RUNTIME_EXCEPTION'
   });
 });
 

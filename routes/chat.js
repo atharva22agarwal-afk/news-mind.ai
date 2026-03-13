@@ -66,7 +66,7 @@ Task: Provide a helpful, informative response based on this information. Be conv
                             { role: 'system', content: 'You are a helpful AI assistant with access to web search.' },
                             { role: 'user', content: prompt }
                         ],
-                        model: 'llama3-8b-8192',
+                        model: 'llama-3.3-70b-versatile',
                         max_tokens: 500,
                         temperature: 0.8
                     });
@@ -95,7 +95,7 @@ Task: Provide a helpful, informative response based on this information. Be conv
             
             const completion = await groq.chat.completions.create({
                 messages: messages,
-                model: 'llama3-8b-8192',
+                model: 'llama-3.3-70b-versatile',
                 max_tokens: 300,
                 temperature: 0.8
             });

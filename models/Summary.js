@@ -110,7 +110,21 @@ const Summary = sequelize.define('Summary', {
     }
 }, {
     tableName: 'summaries',
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        {
+            fields: ['sourceUrl'],
+            name: 'idx_summaries_source_url'
+        },
+        {
+            fields: ['userId'],
+            name: 'idx_summaries_user_id'
+        },
+        {
+            fields: ['createdAt'],
+            name: 'idx_summaries_created_at'
+        }
+    ]
 });
 
 module.exports = Summary;

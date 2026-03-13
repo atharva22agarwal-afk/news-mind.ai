@@ -17,6 +17,7 @@
   "dependencies": {
     "@google-cloud/text-to-speech": "^6.4.0",
     "@google/generative-ai": "^0.24.1",
+    "@mozilla/readability": "^0.6.0",
     "axios": "^1.13.5",
     "cheerio": "^1.2.0",
     "cohere-ai": "^7.20.0",
@@ -24,6 +25,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "groq-sdk": "^0.37.0",
+    "jsdom": "^28.1.0",
     "mammoth": "^1.11.0",
     "multer": "^2.0.2",
     "node-cache": "^5.1.2",

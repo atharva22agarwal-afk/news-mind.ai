@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewsMind War Room</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&family=Merriweather:ital,wght@0,300;0,700;1,300&display=swap"
+        rel="stylesheet">
+    <script src="api-config.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <style>
+        :root {
+            --bg-cream: #FDFCF8;
+            --text-dark: #1a1a1a;
+            --surface-glass: rgba(255, 255, 255, 0.7);
+            --surface-glass-hover: rgba(255, 255, 255, 0.9);
+            --border-glass: rgba(0, 0, 0, 0.08);
+            --primary-orange: #E76F51;
+            --accent-yellow: #E9C46A;
+            --text-muted: #666666;
+            --neon-glow: 0 4px 15px rgba(231, 111, 81, 0.2);
+            --primary-gradient: linear-gradient(135deg, #FF6B6B 0%, #E76F51 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-cream);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(231, 111, 81, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(233, 196, 106, 0.08) 0%, transparent 40%);
+            color: var(--text-dark);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            height: 60px;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            background: rgba(253, 252, 248, 0.8);
+            backdrop-filter: blur(15px);
+            z-index: 100;
+        }
+
+        .logo {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+
+        .logo i {
+            color: var(--primary-orange);
+            font-size: 1.4rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            margin-left: 40px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #888;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .nav-link:hover, .nav-link.active { color: var(--primary-orange); }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-radius: 30px;
+            background: var(--border-glass);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: 0.3s;
+            position: relative;
+        }
+
+        .user-profile:hover {
+            border-color: var(--primary-orange);
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .avatar {
+            width: 28px;
+            height: 28px;
+            background: var(--primary-orange);
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        .logout-menu {
+            position: absolute;
+            top: 45px;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 10px;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            z-index: 200;
+        }
+
+        .logout-menu.active { display: block; }
+        .logout-btn {
+            padding: 8px 15px;
+            color: #ff4d4d;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .logout-btn:hover { background: rgba(255, 77, 77, 0.05); border-radius: 4px; }
+
+        /* --- LAYOUT GRID --- */
+        .war-room-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 380px;
+            height: calc(100vh - 60px);
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* --- LEFT SIDEBAR (LIBRARY) --- */
+        .sidebar {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+        }
+
+        .btn-new {
+            width: 100%;
+            padding: 14px;
+            background: var(--text-dark);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: 0.3s;
+        }
+
+        .btn-new:hover { background: var(--primary-orange); transform: translateY(-2px); box-shadow: var(--neon-glow); }
+
+        .history-list {
+            margin-top: 25px;
+            overflow-y: auto;
+            flex: 1;
+            scrollbar-width: none;
+        }
+        .history-list::-webkit-scrollbar { display: none; }
+
+        .history-item {
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            color: var(--text-dark);
+            transition: 0.3s;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid transparent;
+        }
+
+        .history-item:hover { background: #fff; }
+        .history-item.active {
+            background: #fff;
+            border-color: var(--primary-orange);
+            color: var(--primary-orange);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+        }
+
+        /* --- CENTER STAGE (COMPARISON/INTEL) --- */
+        .main-stage {
+            position: relative;
+            overflow-y: auto;
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.03);
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-glass) transparent;
+        }
+        .main-stage::-webkit-scrollbar { width: 6px; }
+        .main-stage::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+
+        .war-room-input {
+            background: #fff;
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+        }
+
+        .input-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            align-items: center;
+        }
+
+        .mode-toggle {
+            display: flex;
+            background: #f1f1f1;
+            border-radius: 30px;
+            padding: 4px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .mode-btn {
+            padding: 8px 20px;
+            border-radius: 26px;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 700;
+            transition: 0.3s;
+        }
+
+        .mode-btn.active {
+            background: var(--text-dark);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            color: var(--text-dark);
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-family: 'Inter';
+            transition: 0.3s;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--primary-orange);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(231, 111, 81, 0.1);
+        }
+
+        .btn-analyze {
+            width: 100%;
+            margin-top: 25px;
+            padding: 16px;
+            background: var(--text-dark);
+            border: none;
+            color: white;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+        }
+
+        .btn-analyze:hover { background: var(--primary-orange); transform: translateY(-2px); box-shadow: var(--neon-glow); }
+
+        /* Output Area */
+        .intel-output {
+            color: var(--text-dark);
+            display: none;
+            animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+        .intel-card {
+            background: #fff;
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.04);
+        }
+
+        #report-content h1, #report-content h2, #report-content h3 {
+            font-family: 'Merriweather', serif;
+            color: var(--text-dark);
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        #report-content p { color: #444; line-height: 1.8; margin-bottom: 20px; font-size: 1.05rem; }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 30px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #eee;
+        }
+
+        th { background: #fdf2f0; color: var(--primary-orange); padding: 16px; text-align: left; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; border: 1px solid #eee; }
+        td { padding: 16px; border: 1px solid #eee; color: #444; background: #fff; }
+
+        /* --- RIGHT SIDEBAR (LIVE FEED) --- */
+        .live-feed-panel {
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+        }
+
+        .feed-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fdfcf8;
+        }
+
+        .live-badge {
+            font-size: 0.75rem;
+            color: #4ADE80;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 800;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: #4ADE80;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #4ADE80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+
+        .feed-stream { flex: 1; overflow-y: auto; padding: 0 24px; }
+
+        .tweet-card {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-glass);
+            animation: slideIn 0.4s ease-out;
+        }
+
+        .tweet-meta { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.85rem; color: #888; }
+        .tweet-author { color: var(--primary-orange); font-weight: 800; }
+        .tweet-content { font-size: 0.95rem; color: var(--text-dark); line-height: 1.5; margin-bottom: 12px; }
+
+        .tweet-actions { display: flex; gap: 20px; font-size: 1.2rem; color: #aaa; }
+        .tweet-actions i:hover { color: #E76F51; cursor: pointer; }
+
+        .chat-input-area { padding: 24px; border-top: 1px solid var(--border-glass); background: #fdfcf8; }
+        .chat-tools { display: flex; gap: 12px; margin-bottom: 15px; }
+
+        .tool-btn {
+            background: white;
+            border: 1px solid #ddd;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tool-btn:hover { background: #fdf2f0; color: #E76F51; border-color: #f9e0db; }
+
+        .input-wrapper { position: relative; }
+        .chat-input {
+            width: 100%;
+            background: white;
+            border: 1px solid #ddd;
+            padding: 14px 50px 14px 20px;
+            border-radius: 30px;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+        }
+        .chat-input:focus {
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 3px rgba(231,111,81,0.1);
+        }
+
+        .send-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            background: var(--primary-orange);
+            border-radius: 50%;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(231, 111, 81, 0.2);
+        }
+
+        @keyframes slideIn { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        @media (max-width: 1200px) {
+            .war-room-container { grid-template-columns: 80px 1fr 340px; }
+            .sidebar span { display: none; }
+            .container { padding: 0 15px; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div style="display:flex; align-items:center;">
+            <a href="dashboard.html" class="logo"><i class="ph-fill ph-brain"></i> NewsMind.AI</a>
+            <div class="nav-links">
+                <a href="dashboard.html" class="nav-link">Dashboard</a>
+                <a href="war-room.html" class="nav-link active">War Room</a>
+                <a href="chat.html" class="nav-link">Chat</a>
+                <a href="compare.html" class="nav-link">Compare</a>
+            </div>
+        </div>
+        <div class="user-profile" onclick="toggleLogoutMenu()">
+            <span id="user-name-display" style="font-size: 0.85rem;">Guest</span>
+            <div class="avatar" id="user-avatar">G</div>
+            <div class="logout-menu" id="logout-menu">
+                <div class="logout-btn" onclick="handleLogout()">Logout</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="war-room-container">
+        <!-- 1. LEFT SIDEBAR -->
+        <aside class="sidebar">
+            <button onclick="resetDashboard()" class="btn-new">
+                <i class="ph-bold ph-plus"></i> <span>New Operation</span>
+            </button>
+            <div
+                style="margin-top:25px; font-size:0.75rem; color:#999; text-transform:uppercase; letter-spacing:1px; font-weight:700;">
+                Recent Intel</div>
+            <div class="history-list" id="history-container">
+                <!-- History Items Injected Here -->
+            </div>
+        </aside>
+
+        <!-- 2. MAIN STAGE (COMPARISON/ANALYSIS) -->
+        <main class="main-stage">
+            <div class="war-room-input" id="inputSection">
+                <div class="input-header">
+                    <h2 style="font-size:1.2rem; display:flex; align-items:center; gap:8px;"><i
+                            class="ph-fill ph-crosshair"></i> Intelligence Gathering</h2>
+                    <div class="mode-toggle">
+                        <div class="mode-btn active" onclick="switchMode('compare')">Compare</div>
+                        <div class="mode-btn" onclick="switchMode('summary')">Analyze</div>
+                    </div>
+                </div>
+
+                <!-- Compare Mode -->
+                <div id="compare-mode" style="display:block;">
+                    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Target two sources for
+                        bias detection.</p>
+                    <div class="compare-grid">
+                        <input type="text" id="urlA" placeholder="Source Alpha (URL)...">
+                        <input type="text" id="urlB" placeholder="Source Bravo (URL)...">
+                    </div>
+                    <button onclick="runWarRoomAnalysis()" class="btn-analyze" id="analyze-btn">Initiate Deep
+                        Comparison</button>
+                </div>
+
+                <!-- Summary Mode -->
+                <div id="summary-mode" style="display:none;">
+                    <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:15px;">Paste content for AI
+                        intelligence extracting.</p>
+                    <textarea id="textInput" rows="3" placeholder="Paste intelligence text or URL here..."
+                        style="resize:none;"></textarea>
+                    <button onclick="runSummary()" class="btn-analyze" id="summary-btn">Run Intelligence Probe</button>
+                </div>
+            </div>
+
+            <!-- RESULTS AREA -->
+            <div id="intel-display" class="intel-output">
+                <div class="intel-card">
+                    <div
+                        style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border-glass); padding-bottom:15px;">
+                        <h3 style="color:var(--primary-orange);"><i class="ph-fill ph-file-text"></i> Tactical Report
+                        </h3>
+                        <div style="font-family:'JetBrains Mono'; font-size:0.8rem; color:#999;" id="intel-status">
+                            STATUS: STANDBY</div>
+                    </div>
+                    <div id="report-content" style="font-size: 1rem;"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 3. RIGHT SIDEBAR (LIVE FEED) -->
+        <aside class="live-feed-panel">
+            <div class="feed-header">
+                <div style="font-weight:700; font-size:0.95rem;">Global Intelligence Feed</div>
+                <div class="live-badge">
+                    <div class="live-dot"></div> Live
+                </div>
+            </div>
+
+            <div class="feed-stream" id="feed-stream">
+                <!-- Public Feed Injected Here -->
+            </div>
+
+            <!-- CHAT INPUT -->
+            <div class="chat-input-area">
+                <div class="chat-tools">
+                    <button class="tool-btn" onclick="insertTemplate('debate')"><i class="ph-bold ph-chats"></i>
+                        Debate</button>
+                    <button class="tool-btn" onclick="insertTemplate('factcheck')"><i
+                            class="ph-bold ph-check-circle"></i> Verify</button>
+                    <button class="tool-btn"
+                        style="margin-left:auto; color:var(--primary-orange); border-color:rgba(231,111,81,0.1);"
+                        onclick="pushToMain()"><i class="ph-bold ph-arrow-left"></i> Analyze This</button>
+                </div>
+                <div class="input-wrapper">
+                    <input type="text" id="feedInput" class="chat-input" placeholder="Broadcast to feed...">
+                    <button class="send-btn" onclick="postToFeed()"><i
+                            class="ph-fill ph-paper-plane-right"></i></button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // --- AUTH & STATE ---
+        const userId = localStorage.getItem('userId');
+        const userName = localStorage.getItem('userName') || 'Guest';
+        if (!userId) window.location.href = 'login.html';
+
+        document.getElementById('user-name-display').innerText = userName;
+        document.getElementById('user-avatar').innerText = userName.charAt(0).toUpperCase();
+
+        const socket = io();
+
+        // --- UI UTILS ---
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            if (mode === 'compare') {
+                document.querySelectorAll('.mode-btn')[0].classList.add('active');
+                document.getElementById('compare-mode').style.display = 'block';
+                document.getElementById('summary-mode').style.display = 'none';
+            } else {
+                document.querySelectorAll('.mode-btn')[1].classList.add('active');
+                document.getElementById('compare-mode').style.display = 'none';
+                document.getElementById('summary-mode').style.display = 'block';
+            }
+        }
+
+        function toggleLogoutMenu() { document.getElementById('logout-menu').classList.toggle('active'); }
+        function handleLogout() { localStorage.clear(); window.location.href = 'login.html'; }
+
+        function showLoading(msg) {
+            const output = document.getElementById('intel-display');
+            const report = document.getElementById('report-content');
+            output.style.display = 'block';
+            document.getElementById('intel-status').innerText = 'STATUS: ACQUIRING...';
+            report.innerHTML = `<div style="text-align:center; padding:60px; color:var(--primary-orange);"><i class="ph ph-spinner ph-spin" style="font-size:2.5rem;"></i><br><br>${msg}</div>`;
+        }
+
+        // --- FEED LOGIC (REAL-TIME) ---
+        async function loadFeed() {
+            try {
+                const res = await fetch(API.getPublicFeed);
+                const data = await res.json();
+                if (data.success) {
+                    const stream = document.getElementById('feed-stream');
+                    stream.innerHTML = '';
+                    data.data.forEach(p => addPostToUI(p));
+                }
+            } catch (e) { }
+        }
+
+        function addPostToUI(post, isNew = false) {
+            const stream = document.getElementById('feed-stream');
+            const div = document.createElement('div');
+            div.className = 'tweet-card';
+            const time = new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            div.innerHTML = `
+                <div class="tweet-meta">
+                    <span class="tweet-author">@${post.authorName || 'anonymous'}</span>
+                    <span>${time}</span>
+                </div>
+                <div class="tweet-content">${post.content}</div>
+                <div class="tweet-actions">
+                    <i class="ph ph-heart"></i>
+                    <i class="ph ph-arrow-square-out" onclick="runOnInput('${post.content.replace(/'/g, "\\'")}')" title="Analyze this content"></i>
+                </div>
+            `;
+            if (isNew) stream.prepend(div); else stream.appendChild(div);
+        }
+
+        async function postToFeed() {
+            const input = document.getElementById('feedInput');
+            const content = input.value.trim();
+            if (!content) return;
+
+            try {
+                const res = await fetch(API.postToFeed, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, authorName: userName, authorId: userId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    socket.emit('new-public-post', data.data);
+                    input.value = '';
+                }
+            } catch (e) { }
+        }
+
+        socket.on('public-post-broadcast', (post) => {
+            addPostToUI(post, true);
+        });
+
+        // --- UI UTILS & NAVIGATION ---
+        function resetDashboard() {
+            window.location.reload();
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API.getSummaries}?userId=${userId}&limit=10`);
+                const data = await res.json();
+                if (data.success) {
+                    const container = document.getElementById('history-container');
+                    container.innerHTML = '';
+                    data.data.summaries.forEach(s => {
+                        const div = document.createElement('div');
+                        div.className = 'history-item';
+                        div.innerHTML = `
+                            <i class="ph ph-file-text" style="font-size:1.2rem;"></i>
+                            <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.85rem;">${s.title}</div>
+                        `;
+                        div.onclick = () => {
+                            document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+                            div.classList.add('active');
+                            displayReport(s);
+                        };
+                        container.appendChild(div);
+                    });
+                }
+            } catch (e) { }
+        }
+
+        function displayReport(data) {
+            const output = document.getElementById('intel-display');
+            const report = document.getElementById('report-content');
+            output.style.display = 'block';
+            document.getElementById('inputSection').style.display = 'none';
+            document.getElementById('intel-status').innerText = 'STATUS: RETRIEVED';
+
+            const summaryId = data.id || (data.data && data.data.id);
+            const content = data.summary || data.content || (data.data && data.data.summary);
+
+            report.innerHTML = `
+                ${marked.parse(content)}
+                <div style="margin-top:30px; display:flex; gap:15px; border-top:1px solid #eee; padding-top:20px;">
+                    <button onclick="startDebate('${summaryId}')" class="btn-new" style="background:var(--primary-orange); padding:8px 20px; font-size:0.85rem;">
+                        <i class="ph-bold ph-chats"></i> Launch Private Debate Room
+                    </button>
+                </div>
+            `;
+        }
+
+        async function startDebate(id) {
+            if (!id || id === 'undefined') return alert("Requires an active intelligence report ID.");
+
+            try {
+                const res = await fetch(API.createDebate, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ summaryId: id, userId, userName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`Debate Room Created: ${data.data.topic}\nRoom ID: ${data.data.roomId}`);
+                    // In a full implementation, we'd redirect to a debate-specific UI
+                    // For now, we broadcast the invitation to the feed
+                    document.getElementById('feedInput').value = `INVITATION: Join my debate on "${data.data.topic}". Room ID: ${data.data.roomId}`;
+                } else {
+                    alert("Failed to create debate: " + data.message);
+                }
+            } catch (e) {
+                alert("Debate logic error: " + e.message);
+            }
+        }
+
+        function insertTemplate(type) {
+            const input = document.getElementById('feedInput');
+            const templates = {
+                debate: "DEBATE PROPOSAL: Regarding [Topic], I argue that [Point]. @AI Analyst, please adjudicate.",
+                factcheck: "VERIFICATION REQUEST: Is it true that [Claim]? Please cross-reference sources."
+            };
+            input.value = templates[type] || "";
+            input.focus();
+        }
+
+        function pushToMain() {
+            const feedInput = document.getElementById('feedInput');
+            const textInput = document.getElementById('textInput');
+            if (!feedInput.value.trim()) return;
+
+            switchMode('summary');
+            textInput.value = feedInput.value;
+            feedInput.value = '';
+            textInput.focus();
+        }
+
+        function runOnInput(text) {
+            switchMode('summary');
+            document.getElementById('textInput').value = text;
+            runSummary();
+        }
+
+        async function runSummary() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) return alert("Content required for analysis.");
+
+            showLoading("Extracting Intelligence & Synthesizing...");
+            const isUrl = text.startsWith('http');
+
+            try {
+                const res = await fetch(isUrl ? API.summarizeURL : API.summarizeText, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [isUrl ? 'url' : 'text']: text, userId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('intel-status').innerText = 'STATUS: ANALYZED';
+                    displayReport(data.data);
+                    loadHistory();
+                } else {
+                    throw new Error(data.message || "Synthesization failed");
+                }
+            } catch (e) {
+                document.getElementById('report-content').innerHTML = `<p style="color:red">Intelligence failure: ${e.message}</p>`;
+            }
+        }
+
+        // --- ANALYSIS LOGIC ---
+        async function runWarRoomAnalysis() {
+            const urlA = document.getElementById('urlA').value.trim();
+            const urlB = document.getElementById('urlB').value.trim();
+            if (!urlA || !urlB) return alert("Alpha and Bravo targets required.");
+
+            showLoading("Parsing Sources & Detecting Bias...");
+
+            try {
+                const res = await fetch(API.toolsCompare, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url1: urlA, url2: urlB })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('intel-status').innerText = 'STATUS: VERIFIED';
+                    document.getElementById('report-content').innerHTML = marked.parse(data.data);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (e) {
+                document.getElementById('report-content').innerHTML = `<p style="color:red">Intelligence failure: ${e.message}</p>`;
+            }
+        }
+
+        window.onload = () => {
+            loadFeed();
+            loadHistory();
+        };
+    </script>
+</body>
+
+</html>
