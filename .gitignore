@@ -4,6 +4,9 @@ node_modules/
 # Environment
 .env
 
+# Firebase credentials (never commit)
+firebase-key.json
+
 # Database
 *.sqlite
 *.db
@@ -24,7 +27,15 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+err_out.txt
+out.log
 
-# Test
+# Test files & output
 coverage/
-
+test_output.txt
+smoke_test.js
+test_*.js
+verify_*.js
+check_*.js
+create_sample.js
+list_models.js

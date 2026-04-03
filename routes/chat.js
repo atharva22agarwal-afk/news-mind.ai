@@ -9,6 +9,17 @@ if (process.env.GROQ_API_KEY) {
     groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 }
 
+// ── Expert System Prompt ────────────────────────────────────────
+const NEXUS_PERSONA = `You are NEXUS, a senior AI intelligence assistant at NewsMind.AI.
+You are knowledgeable, articulate, and thorough. Your responses are:
+- Well-structured with clear sections using Markdown formatting (headers, bullets, bold)
+- Backed by evidence and specific details from the provided sources
+- Rich in context — you connect topics to broader trends and implications
+- Balanced, presenting multiple perspectives when topics are debatable
+- Actionable, ending with key takeaways or questions to explore further
+When citing sources, mention them naturally (e.g., "According to [Source Name]...").
+Never give one-line answers. Always provide depth and nuance.`;
+
 /**
  * POST /api/chat
  * AI Chat - Ask anything, get intelligent answers with web search
@@ -27,48 +38,68 @@ router.post('/', async (req, res) => {
         console.log(`💬 AI Chat: ${message}`);
         
         // Check if it's a news/search query or general chat
-        const isNewsQuery = /news|latest|update|recent|what happened|breaking|current|2024|2025|2026|trending|today/i.test(message);
+        const isNewsQuery = /news|latest|update|recent|what happened|breaking|current|2024|2025|2026|trending|today|who|what|where|when|why|how|tell me about|explain/i.test(message);
         
         let response = null;
         let sources = [];
         
-        if (isNewsQuery || message.length > 20) {
+        if (isNewsQuery || message.length > 15) {
             // Search the web for relevant info
-            console.log('🔍 Detected news/query - searching web...');
+            console.log('🔍 Detected query - searching web for context...');
             
             const searchData = await searchGoogle(message);
             
             if (searchData && searchData.results) {
-                sources = searchData.results.slice(0, 3);
+                sources = searchData.results.slice(0, 5);
                 
-                // Try to scrape top result
-                const topResult = searchData.results[0];
-                let content = await scrapeWebPage(topResult.link);
+                // Try to scrape the top 2 results for deeper context
+                const topResults = searchData.results.slice(0, 2);
+                let scrapedContent = '';
                 
-                if (!content) {
-                    content = searchData.results.map(r => r.snippet).join('\n\n');
+                for (const result of topResults) {
+                    const content = await scrapeWebPage(result.link);
+                    if (content) {
+                        scrapedContent += `\n\n--- From ${result.title} ---\n${content.substring(0, 4000)}`;
+                        break; // Use the first successful scrape
+                    }
+                }
+                
+                // Fallback to snippets if scraping failed
+                if (!scrapedContent) {
+                    scrapedContent = searchData.results
+                        .slice(0, 5)
+                        .map(r => `[${r.title}]: ${r.snippet}`)
+                        .join('\n\n');
                 }
                 
                 // Generate AI response with web content
                 if (groq) {
-                    const prompt = `You are a helpful AI assistant. The user asked: "${message}"
+                    const prompt = `The user asked: "${message}"
 
-Relevant search results:
-${searchData.results.slice(0, 3).map((r, i) => `${i+1}. ${r.title}: ${r.snippet}`).join('\n\n')}
+Here is the relevant information gathered from web sources:
 
-Content from top source:
-${content.substring(0, 6000)}
+SEARCH RESULTS:
+${searchData.results.slice(0, 5).map((r, i) => `${i+1}. **${r.title}**\n   ${r.snippet}\n   Source: ${r.link}`).join('\n\n')}
 
-Task: Provide a helpful, informative response based on this information. Be conversational and friendly.`;
+DETAILED CONTENT:
+${scrapedContent.substring(0, 8000)}
+
+INSTRUCTIONS:
+- Provide a comprehensive, well-structured answer using Markdown
+- Start with a direct answer to the question
+- Then expand with context, details, and analysis
+- Cite sources naturally when referencing specific information
+- End with key takeaways or related questions worth exploring
+- If the information is time-sensitive, note the date context`;
 
                     const completion = await groq.chat.completions.create({
                         messages: [
-                            { role: 'system', content: 'You are a helpful AI assistant with access to web search.' },
+                            { role: 'system', content: NEXUS_PERSONA },
                             { role: 'user', content: prompt }
                         ],
                         model: 'llama-3.3-70b-versatile',
-                        max_tokens: 500,
-                        temperature: 0.8
+                        max_tokens: 2048,
+                        temperature: 0.4
                     });
                     
                     response = completion.choices[0]?.message?.content;
@@ -80,13 +111,13 @@ Task: Provide a helpful, informative response based on this information. Be conv
         if (!response && groq) {
             console.log('💭 General chat - using AI only');
             
-            // Build conversation history
+            // Build conversation history with extended context
             const messages = [
-                { role: 'system', content: 'You are a helpful, friendly AI assistant. Be conversational and concise.' }
+                { role: 'system', content: NEXUS_PERSONA }
             ];
             
-            // Add history
-            history.slice(-5).forEach(h => {
+            // Add history (extended to 10 messages for better context)
+            history.slice(-10).forEach(h => {
                 messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content });
             });
             
@@ -96,8 +127,8 @@ Task: Provide a helpful, informative response based on this information. Be conv
             const completion = await groq.chat.completions.create({
                 messages: messages,
                 model: 'llama-3.3-70b-versatile',
-                max_tokens: 300,
-                temperature: 0.8
+                max_tokens: 1024,
+                temperature: 0.4
             });
             
             response = completion.choices[0]?.message?.content;

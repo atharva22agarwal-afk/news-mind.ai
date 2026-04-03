@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const Poll = require('../models/Poll');
+const firestore = require('../services/firestoreService');
 
 /**
  * POST /api/polls/create
- * Create a new poll
+ * Create a new poll in Firestore
  */
 router.post('/create', async (req, res) => {
   try {
@@ -17,8 +17,7 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    // Sequelize syntax
-    const poll = await Poll.create({
+    const pollData = {
       question,
       optionA,
       optionB,
@@ -26,14 +25,18 @@ router.post('/create', async (req, res) => {
       userId,
       votesA: 0,
       votesB: 0,
-      voters: []
-    });
+      voters: [],
+      status: 'active',
+      createdAt: new Date()
+    };
 
-    console.log(`✅ Poll created: ${poll.id}`);
+    const pollDoc = await firestore.create('polls', pollData);
+
+    console.log(`✅ Poll created in Firestore: ${pollDoc.id}`);
 
     res.json({
       success: true,
-      data: poll
+      data: { id: pollDoc.id, ...pollData }
     });
 
   } catch (error) {
@@ -47,7 +50,6 @@ router.post('/create', async (req, res) => {
 
 /**
  * POST /api/polls/vote
- * Vote on a poll with AI insight generation
  */
 router.post('/vote', async (req, res) => {
   try {
@@ -60,8 +62,7 @@ router.post('/vote', async (req, res) => {
       });
     }
 
-    // Sequelize syntax
-    const poll = await Poll.findByPk(pollId);
+    const poll = await firestore.getById('polls', pollId);
 
     if (!poll) {
       return res.status(404).json({
@@ -70,7 +71,6 @@ router.post('/vote', async (req, res) => {
       });
     }
 
-    // Check if user already voted
     const voters = poll.voters || [];
     if (voters.includes(userId)) {
       return res.status(400).json({
@@ -79,15 +79,14 @@ router.post('/vote', async (req, res) => {
       });
     }
 
-    // Record vote
     const updateData = {
       voters: [...voters, userId]
     };
 
     if (option === 'A') {
-      updateData.votesA = poll.votesA + 1;
+      updateData.votesA = (poll.votesA || 0) + 1;
     } else if (option === 'B') {
-      updateData.votesB = poll.votesB + 1;
+      updateData.votesB = (poll.votesB || 0) + 1;
     } else {
       return res.status(400).json({
         success: false,
@@ -95,25 +94,26 @@ router.post('/vote', async (req, res) => {
       });
     }
 
-    await poll.update(updateData);
+    await firestore.update('polls', pollId, updateData);
 
-    const totalVotes = poll.votesA + poll.votesB;
+    const totalVotes = updateData.votesA || poll.votesA + (updateData.votesB || poll.votesB);
+    const finalVotesA = updateData.votesA || poll.votesA;
+    const finalVotesB = updateData.votesB || poll.votesB;
+    const finalTotal = finalVotesA + finalVotesB;
 
-    // Generate AI insight when poll hits milestones (10, 50, 100, 500 votes)
     const milestones = [10, 50, 100, 500];
-    if (milestones.includes(totalVotes)) {
-      // Run async - don't block the response
-      generatePollInsight(poll).catch(console.error);
+    if (milestones.includes(finalTotal)) {
+      generatePollInsight(pollId, { ...poll, ...updateData }).catch(console.error);
     }
 
     res.json({
       success: true,
       data: {
-        votesA: poll.votesA,
-        votesB: poll.votesB,
-        total: totalVotes,
-        optionAPercentage: ((poll.votesA / totalVotes) * 100).toFixed(1),
-        optionBPercentage: ((poll.votesB / totalVotes) * 100).toFixed(1),
+        votesA: finalVotesA,
+        votesB: finalVotesB,
+        total: finalTotal,
+        optionAPercentage: finalTotal > 0 ? ((finalVotesA / finalTotal) * 100).toFixed(1) : 0,
+        optionBPercentage: finalTotal > 0 ? ((finalVotesB / finalTotal) * 100).toFixed(1) : 0,
         aiInsight: poll.aiInsight
       }
     });
@@ -127,10 +127,7 @@ router.post('/vote', async (req, res) => {
   }
 });
 
-/**
- * Generate AI insight for poll at milestones
- */
-async function generatePollInsight(poll) {
+async function generatePollInsight(pollId, poll) {
   try {
     const { researchChat } = require('../services/aiService');
 
@@ -141,25 +138,20 @@ async function generatePollInsight(poll) {
 
     const response = await researchChat(prompt, []);
 
-    await poll.update({
+    await firestore.update('polls', pollId, {
       aiInsight: response.reply,
       aiInsightGeneratedAt: new Date()
     });
 
-    console.log(`✅ AI insight generated for poll ${poll.id}`);
+    console.log(`✅ AI insight generated for poll ${pollId}`);
   } catch (error) {
     console.error('AI insight error:', error.message);
   }
 }
 
-/**
- * GET /api/polls/:id
- * Get poll details
- */
 router.get('/:id', async (req, res) => {
   try {
-    // Sequelize syntax
-    const poll = await Poll.findByPk(req.params.id);
+    const poll = await firestore.getById('polls', req.params.id);
 
     if (!poll) {
       return res.status(404).json({
@@ -182,16 +174,9 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-/**
- * GET /api/polls
- * Get all polls
- */
 router.get('/', async (req, res) => {
   try {
-    // Sequelize syntax
-    const polls = await Poll.findAll({
-      order: [['createdAt', 'DESC']]
-    });
+    const polls = await firestore.list('polls', [], 100, 'createdAt', 'desc');
 
     res.json({
       success: true,

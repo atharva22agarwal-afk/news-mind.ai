@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const Debate = require('../models/Debate');
-const Summary = require('../models/Summary');
+const firestore = require('../services/firestoreService');
 const { judgeArgument, moderateDebate } = require('../services/aiService');
 let io = null;
 
@@ -24,8 +23,8 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    // Verify summary exists (Sequelize syntax)
-    const summary = await Summary.findByPk(summaryId);
+    // Verify summary exists in Firestore
+    const summary = await firestore.getById('summaries', summaryId);
     if (!summary) {
       return res.status(404).json({
         success: false,
@@ -36,31 +35,40 @@ router.post('/create', async (req, res) => {
     // Generate unique room ID
     const roomId = uuidv4();
 
-    // Create debate room (Sequelize syntax)
-    const debate = await Debate.create({
+    // Create debate room in Firestore
+    const debateData = {
       summaryId,
       roomId,
       topic: summary.title,
       description: `Debate about: ${summary.title}`,
       createdBy: userId,
-      participants: [userId], // Simple array of userIds
+      status: 'active',
+      isActive: true,
+      maxParticipants: 10,
+      participants: [userId],
       messages: [{
         userId: 'system',
         userName: 'System',
         content: `Debate room created for "${summary.title}". Share the room ID to invite others!`,
         timestamp: new Date(),
         side: 'neutral'
-      }]
-    });
+      }],
+      arguments: [],
+      lastActivity: new Date(),
+      createdAt: new Date()
+    };
 
-    console.log(`✅ Debate room created: ${roomId}`);
+    const debateDoc = await firestore.create('debates', debateData);
+
+    console.log(`✅ Debate room created in Firestore: ${roomId}`);
 
     res.json({
       success: true,
       data: {
+        id: debateDoc.id,
         roomId,
         topic: summary.title,
-        createdAt: debate.createdAt
+        createdAt: debateData.createdAt
       }
     });
 
@@ -75,15 +83,13 @@ router.post('/create', async (req, res) => {
 
 /**
  * POST /api/debate/:id/argue
- * Submit an argument with AI analysis
  */
 router.post('/:id/argue', async (req, res) => {
   try {
     const { content, side, userId = 'guest', userName = 'Anonymous' } = req.body;
     const debateId = req.params.id;
 
-    // Sequelize syntax
-    const debate = await Debate.findByPk(debateId);
+    const debate = await firestore.getById('debates', debateId);
 
     if (!debate) {
       return res.status(404).json({ error: 'Debate not found' });
@@ -101,10 +107,8 @@ router.post('/:id/argue', async (req, res) => {
       return res.status(400).json({ error: 'Argument too short. Make your case!' });
     }
 
-    // Add argument to JSON array (Sequelize requires manual update for JSON)
-    const currentArguments = debate.arguments || [];
     const newArgument = {
-      id: uuidv4(), // Give it an ID since it's in JSON now
+      id: uuidv4(),
       userId,
       content,
       side,
@@ -113,24 +117,20 @@ router.post('/:id/argue', async (req, res) => {
       updatedAt: new Date()
     };
 
-    const updatedArguments = [...currentArguments, newArgument];
-    await debate.update({
+    const updatedArguments = [...(debate.arguments || []), newArgument];
+    await firestore.update('debates', debateId, {
       arguments: updatedArguments,
       lastActivity: new Date()
     });
 
-    // Get the saved argument
-    const savedArgument = newArgument;
-
-    // Send response immediately - don't make user wait for AI
     res.json({
       success: true,
-      argument: savedArgument,
+      argument: newArgument,
       message: 'Argument posted! AI analysis incoming...'
     });
 
     // Run AI analysis in background
-    analyzeArgumentAsync(debate, savedArgument, content, side);
+    analyzeArgumentAsync(debateId, newArgument, content, side);
 
   } catch (err) {
     console.error('Argue error:', err);
@@ -138,19 +138,16 @@ router.post('/:id/argue', async (req, res) => {
   }
 });
 
-/**
- * Background AI analysis - runs after response is sent
- */
-async function analyzeArgumentAsync(debate, argument, content, side) {
+async function analyzeArgumentAsync(debateId, argument, content, side) {
   try {
-    // Judge the specific argument
+    // Get fresh debate data
+    const debate = await firestore.getById('debates', debateId);
+    if (!debate) return;
+
     const analysis = await judgeArgument(content, debate.topic, side);
 
-    // Update the argument in the JSON array
     const currentArgs = [...(debate.arguments || [])];
-    const argIndex = currentArgs.findIndex(a =>
-      a.id === argument.id
-    );
+    const argIndex = currentArgs.findIndex(a => a.id === argument.id);
 
     if (argIndex !== -1) {
       currentArgs[argIndex] = {
@@ -166,10 +163,9 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
         updatedAt: new Date()
       };
 
-      await debate.update({ arguments: currentArgs });
+      await firestore.update('debates', debateId, { arguments: currentArgs });
     }
 
-    // Emit to all users watching this debate (real-time update)
     if (io) {
       io.to(`debate:${debate.id}`).emit('argument-analyzed', {
         argumentId: argument.id,
@@ -178,21 +174,21 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
       });
     }
 
-    // Every 5 arguments, update the full debate moderation
-    if (debate.arguments.length % 5 === 0) {
-      const messagesForModeration = debate.arguments.map(a => ({
+    // Every 5 arguments, moderate
+    if (currentArgs.length % 5 === 0) {
+      const messagesForModeration = currentArgs.map(a => ({
         sender: a.side,
         content: a.content
       }));
 
       const moderation = await moderateDebate(debate.topic, messagesForModeration);
 
-      debate.aiForStrength = moderation.forStrength || 50;
-      debate.aiAgainstStrength = moderation.againstStrength || 50;
-      debate.aiDominantThemes = moderation.dominantThemes || [];
-      debate.aiLastUpdated = new Date();
-
-      await debate.save();
+      await firestore.update('debates', debateId, {
+        aiForStrength: moderation.forStrength || 50,
+        aiAgainstStrength: moderation.againstStrength || 50,
+        aiDominantThemes: moderation.dominantThemes || [],
+        aiLastUpdated: new Date()
+      });
 
       if (io) {
         io.to(`debate:${debate.id}`).emit('debate-moderated', {
@@ -209,7 +205,6 @@ async function analyzeArgumentAsync(debate, argument, content, side) {
 
 /**
  * POST /api/debate/join
- * Join an existing debate room
  */
 router.post('/join', async (req, res) => {
   try {
@@ -222,31 +217,27 @@ router.post('/join', async (req, res) => {
       });
     }
 
-    // Sequelize syntax
-    const debate = await Debate.findOne({ where: { roomId, isActive: true } });
+    const debate = await firestore.findOne('debates', 'roomId', roomId);
 
-    if (!debate) {
+    if (!debate || !debate.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Debate room not found or inactive'
       });
     }
 
-    // Check if already a participant
     const alreadyJoined = debate.participants.includes(userId);
 
     if (!alreadyJoined) {
-      // Check max participants
-      if (debate.participants.length >= debate.maxParticipants) {
+      if (debate.participants.length >= (debate.maxParticipants || 10)) {
         return res.status(400).json({
           success: false,
           message: 'Debate room is full'
         });
       }
 
-      // Update participants and messages JSON
       const participants = [...debate.participants, userId];
-      const messages = [...debate.messages, {
+      const messages = [...(debate.messages || []), {
         userId: 'system',
         userName: 'System',
         content: `${userName} joined the debate`,
@@ -254,23 +245,19 @@ router.post('/join', async (req, res) => {
         side: 'neutral'
       }];
 
-      await debate.update({
+      await firestore.update('debates', debate.id, {
         participants,
         messages,
         lastActivity: new Date()
       });
+      
+      debate.participants = participants;
+      debate.messages = messages;
     }
-
-    console.log(`✅ User joined debate: ${roomId}`);
 
     res.json({
       success: true,
-      data: {
-        roomId: debate.roomId,
-        topic: debate.topic,
-        participants: debate.participants,
-        messages: debate.messages
-      }
+      data: debate
     });
 
   } catch (error) {
@@ -284,7 +271,6 @@ router.post('/join', async (req, res) => {
 
 /**
  * POST /api/debate/message
- * Send a message in debate room
  */
 router.post('/message', async (req, res) => {
   try {
@@ -303,80 +289,63 @@ router.post('/message', async (req, res) => {
       });
     }
 
-    // Sequelize syntax
-    const debate = await Debate.findOne({ where: { roomId: roomId, isActive: true } });
+    const debate = await firestore.findOne('debates', 'roomId', roomId);
 
-    if (!debate) {
+    if (!debate || !debate.isActive) {
       return res.status(404).json({
         success: false,
         message: 'Debate room not found'
       });
     }
 
-    // Update messages JSON (Sequelize syntax)
-    const updatedMessages = [...(debate.messages || []), {
+    const userMsg = {
       userId,
       userName,
       content: message,
       timestamp: new Date(),
       side: 'neutral'
-    }];
+    };
 
-    await debate.update({
+    const updatedMessages = [...(debate.messages || []), userMsg];
+
+    await firestore.update('debates', debate.id, {
       messages: updatedMessages,
       lastActivity: new Date()
     });
 
     let aiResponse = null;
 
-    // Generate AI response if requested
     if (requestAIResponse) {
       try {
         const aiService = require('../services/aiService');
-        const aiMessage = await aiService.generateDebateResponse(
+        const aiMsgContent = await aiService.generateDebateResponse(
           debate.topic,
           message,
           debate.messages
         );
 
-        const updatedMessagesWithAI = [...(debate.messages || []), {
-          userId: 'ai',
-          userName: 'AI Moderator',
-          content: aiMessage,
-          timestamp: new Date(),
-          side: 'neutral'
-        }];
-
-        await debate.update({
-          messages: updatedMessagesWithAI,
-          lastActivity: new Date()
-        });
-
         aiResponse = {
           userId: 'ai',
           userName: 'AI Moderator',
-          content: aiMessage,
+          content: aiMsgContent,
           timestamp: new Date(),
           side: 'neutral'
         };
+
+        await firestore.update('debates', debate.id, {
+          messages: [...updatedMessages, aiResponse],
+          lastActivity: new Date()
+        });
 
       } catch (aiError) {
         console.error('AI response error:', aiError);
       }
     }
 
-    console.log(`✅ Message sent in debate: ${roomId}`);
-
     res.json({
       success: true,
       data: {
-        userMessage: {
-          userId,
-          userName,
-          content: message,
-          timestamp: new Date(),
-          side: 'neutral'
-        },
+        userMessage: userMsg,
         aiResponse
       }
     });
@@ -390,82 +359,9 @@ router.post('/message', async (req, res) => {
   }
 });
 
-/**
- * POST /api/debate/moderate
- * Request AI moderation
- */
-router.post('/moderate', async (req, res) => {
-  try {
-    const { roomId } = req.body;
-
-    if (!roomId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Room ID is required'
-      });
-    }
-
-    // Sequelize syntax
-    const debate = await Debate.findOne({ where: { roomId: roomId, isActive: true } });
-
-    if (!debate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Debate room not found'
-      });
-    }
-
-    const aiService = require('../services/aiService');
-
-    // Generate moderation response
-    const moderation = await aiService.moderateDebate(debate.topic, debate.messages);
-
-    // Update messages JSON
-    const updatedMsgs = [...(debate.messages || []), {
-      userId: 'ai',
-      userName: 'AI Moderator',
-      content: moderation,
-      timestamp: new Date(),
-      side: 'neutral'
-    }];
-
-    await debate.update({
-      messages: updatedMsgs,
-      lastActivity: new Date()
-    });
-
-    console.log(`✅ Moderation added to debate: ${roomId}`);
-
-    res.json({
-      success: true,
-      data: {
-        moderation: {
-          userId: 'ai',
-          userName: 'AI Moderator',
-          content: moderation,
-          timestamp: new Date(),
-          side: 'neutral'
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Moderation error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate moderation'
-    });
-  }
-});
-
-/**
- * GET /api/debate/:roomId
- * Get debate room details and messages
- */
 router.get('/:roomId', async (req, res) => {
   try {
-    // Sequelize syntax
-    const debate = await Debate.findOne({ where: { roomId: req.params.roomId } });
+    const debate = await firestore.findOne('debates', 'roomId', req.params.roomId);
 
     if (!debate) {
       return res.status(404).json({
@@ -488,16 +384,10 @@ router.get('/:roomId', async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/debate/:roomId
- * Close/deactivate a debate room
- */
 router.delete('/:roomId', async (req, res) => {
   try {
     const { userId } = req.body;
-
-    // Sequelize syntax
-    const debate = await Debate.findOne({ where: { roomId: req.params.roomId } });
+    const debate = await firestore.findOne('debates', 'roomId', req.params.roomId);
 
     if (!debate) {
       return res.status(404).json({
@@ -506,7 +396,6 @@ router.delete('/:roomId', async (req, res) => {
       });
     }
 
-    // Only creator can close
     if (debate.createdBy !== userId) {
       return res.status(403).json({
         success: false,
@@ -514,12 +403,10 @@ router.delete('/:roomId', async (req, res) => {
       });
     }
 
-    await debate.update({
+    await firestore.update('debates', debate.id, {
       isActive: false,
       status: 'closed'
     });
-
-    console.log(`✅ Debate room closed: ${req.params.roomId}`);
 
     res.json({
       success: true,

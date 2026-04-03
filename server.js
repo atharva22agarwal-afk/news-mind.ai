@@ -1,9 +1,12 @@
 const express = require('express');
 const cors = require('cors');
-const { connectDB } = require('./config/database');
 const http = require('http');
 const { Server } = require('socket.io');
+const helmet = require('helmet');
 require('dotenv').config();
+
+// Ensure Firebase is initialized
+require('./config/firebase');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -11,8 +14,8 @@ const httpServer = http.createServer(app);
 // Socket.io setup for real-time features
 const io = new Server(httpServer, {
   cors: {
-    origin: '*', // Allow all origins in production for simplicity, or specify domains
-    methods: ['GET', 'POST'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5000', 'http://127.0.0.1:5000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
   }
 });
@@ -63,43 +66,133 @@ debateRouter.setIO(io);
 // Store for route mounting
 app.set('debateRouter', debateRouter);
 
-// Middleware
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+// ==================== SECURITY MIDDLEWARE ====================
+
+// Helmet for security headers (XSS protection, clickjacking prevention, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable for now, configure based on your needs
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false
 }));
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// CORS with specific origins (NOT wildcard in production)
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+  'http://localhost:5000',
+  'http://127.0.0.1:5000'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      console.warn(`🚫 Blocked CORS request from: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+}));
+
+// Request size limiter (prevent large payload attacks)
+app.use((req, res, next) => {
+  const contentLength = parseInt(req.headers['content-length']);
+  const maxContentLength = 10 * 1024 * 1024; // 10MB
+  
+  if (contentLength && contentLength > maxContentLength) {
+    return res.status(413).json({
+      success: false,
+      error: 'Request payload too large',
+      message: 'Maximum request size is 10MB'
+    });
+  }
+  next();
+});
+
+// Input sanitization (prevent XSS)
+const { sanitizeInput, securityHeaders } = require('./middleware/security');
+app.use(sanitizeInput);
+app.use(securityHeaders);
+
+// Rate limiting middleware
+const { generalLimiter, aiLimiter, uploadLimiter, authLimiter, chatLimiter, speedLimiter } = require('./middleware/rateLimiter');
+
+// Apply general rate limiter and speed limiter to all routes
+app.use(generalLimiter);
+app.use(speedLimiter);
+
+// Standard middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files (for audio files)
 app.use('/uploads', express.static('uploads'));
 
-// Import models (registers them with Sequelize)
-const User = require('./models/User');
-const Summary = require('./models/Summary');
-const Debate = require('./models/Debate');
-const Poll = require('./models/Poll');
-const PublicPost = require('./models/PublicPost');
-
 // AI Service for comparison tool
 const aiService = require('./services/aiService');
 
-// Routes
-app.use('/api/summary', require('./routes/summary'));
-app.use('/api/debate', debateRouter);
+// Health monitoring
+const { healthMonitor, healthMiddleware, healthCheckHandler, readinessHandler, livenessHandler, metricsHandler } = require('./services/healthMonitor');
+
+// Apply health monitoring middleware
+app.use(healthMiddleware);
+
+// Make db and aiService available to health monitor
+const { db } = require('./config/firebase');
+app.locals.db = db;
+app.locals.aiService = aiService;
+
+// ==================== HEALTH CHECK ENDPOINTS ====================
+
+// Comprehensive health check
+app.get('/api/health', healthCheckHandler);
+
+// Kubernetes readiness probe
+app.get('/api/ready', readinessHandler);
+
+// Kubernetes liveness probe
+app.get('/api/live', livenessHandler);
+
+// Prometheus-compatible metrics
+app.get('/api/metrics', metricsHandler);
+
+// ==================== ROUTES WITH RATE LIMITING ====================
+
+// Auth routes - strict rate limiting (prevent brute force)
+app.use('/api/auth', authLimiter, require('./routes/auth'));
+
+// Summary routes - AI rate limiting (expensive operations)
+app.use('/api/summary', aiLimiter, require('./routes/summary'));
+
+// Debate routes - chat rate limiting
+app.use('/api/debate', chatLimiter, debateRouter);
+
+// History routes - general access
 app.use('/api/history', require('./routes/history'));
+
+// Polls routes
 app.use('/api/polls', require('./routes/polls'));
-app.use('/api/research', require('./routes/research'));
-app.use('/api/chat', require('./routes/chat'));
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/factcheck', require('./routes/factcheck'));
+
+// Research routes - AI intensive
+app.use('/api/research', aiLimiter, require('./routes/research'));
+
+// Chat routes - AI + chat limiting
+app.use('/api/chat', aiLimiter, chatLimiter, require('./routes/chat'));
+
+// Fact-check routes - AI intensive
+app.use('/api/factcheck', aiLimiter, require('./routes/factcheck'));
+
+// Public feed routes
 app.use('/api/feed', require('./routes/public_feed'));
 
-// Article Comparison Route
-app.post('/api/tools/compare', async (req, res) => {
+// Article Comparison Route - AI intensive
+app.post('/api/tools/compare', aiLimiter, async (req, res) => {
   try {
     const { url1, url2 } = req.body;
 
@@ -127,24 +220,32 @@ app.post('/api/tools/compare', async (req, res) => {
   }
 });
 
-// Health Check / API Status
+// Health Check / API Status (Legacy endpoint - use /api/health for detailed)
 app.get('/api/status', async (req, res) => {
   try {
-    const { sequelize } = require('./config/database');
-    const hasPg = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
-    await sequelize.authenticate();
-
+    const health = await healthMonitor.getHealthStatus(db, aiService);
+    
     res.json({
       status: 'success',
-      message: 'News AI Summarizer API is running!',
-      version: '1.3.0',
-      database: hasPg ? 'Postgres (Production)' : 'SQLite (Local)',
-      dbStatus: 'connected',
+      message: 'NewsMind AI API is running!',
+      version: '1.1.0',
+      database: 'Firebase Firestore',
+      dbStatus: health.database.connected ? 'connected' : 'disconnected',
+      dbLatency: health.database.latency || 0,
       realtime: 'Socket.io enabled',
+      uptime: health.uptime,
+      performance: health.performance,
+      memory: health.memory,
+      aiServices: {
+        groq: health.aiServices.groq,
+        gemini: health.aiServices.gemini
+      },
       endpoints: {
         summary: '/api/summary',
         debate: '/api/debate',
-        history: '/api/history'
+        history: '/api/history',
+        health: '/api/health',
+        metrics: '/api/metrics'
       }
     });
   } catch (error) {
@@ -203,20 +304,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server with SQLite sync
+// Start Server
 const PORT = process.env.PORT || 5000;
 
-// Sync Database and start server
-const startServer = async () => {
+const startServer = () => {
   try {
-    const { sequelize } = require('./config/database');
-    await sequelize.sync({ force: false });
-    console.log('✅ SQLite Database Connected & Synced');
-
     httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🔌 Socket.io enabled for real-time features`);
-      console.log(`🌐 Application is live!`);
+      console.log(`🌐 Application is live! (Firebase Backend)`);
     });
   } catch (err) {
     console.error('❌ Failed to start server:', err);

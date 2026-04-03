@@ -1,13 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { searchGoogle, scrapeWebPage } = require('../services/webSearch');
-const Groq = require('groq-sdk');
-require('dotenv').config();
-
-let groq = null;
-if (process.env.GROQ_API_KEY) {
-    groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-}
+const aiService = require('../services/aiService');
 
 /**
  * POST /api/research
@@ -26,79 +20,42 @@ router.post('/', async (req, res) => {
         
         console.log(`📊 Research request: ${topic}`);
         
-        // 1. Search Google
+        // 1. Search Google (expanded results)
         const searchData = await searchGoogle(topic);
         
         if (!searchData || !searchData.results) {
             return res.status(500).json({
                 success: false,
-                message: 'Search failed. Please try again.'
+                message: 'Search failed. Please verify your SERPER_API_KEY in .env'
             });
         }
         
-        const topResult = searchData.results[0];
-        
-        // 2. Try to scrape the top result
-        let pageContent = await scrapeWebPage(topResult.link);
+        // 2. Try to scrape the top 3 results for deep context
+        let scrapedContent = '';
+        for (const result of searchData.results.slice(0, 3)) {
+            try {
+                const content = await scrapeWebPage(result.link);
+                if (content) {
+                    scrapedContent += `\n\n--- From: ${result.title} (${result.link}) ---\n${content.substring(0, 5000)}`;
+                    if (scrapedContent.length > 10000) break;
+                }
+            } catch (err) {
+                console.warn(`⚠️ Scraping failed for ${result.link}:`, err.message);
+            }
+        }
         
         // 3. Fallback to snippets if scraping failed
-        if (!pageContent) {
+        if (!scrapedContent) {
             console.log("⚠️ Using Google snippets as fallback");
-            pageContent = searchData.results
-                .map(r => r.snippet)
+            scrapedContent = searchData.results
+                .map(r => `[${r.title}]: ${r.snippet}`)
                 .join('\n\n');
         }
         
-        // 4. Generate AI Summary using Groq
-        let summary = null;
+        // 4. Generate AI Report using standardized aiService
+        let summary = await aiService.generateResearchReport(topic, searchData.results, scrapedContent);
         
-        if (groq) {
-            console.log('🤖 Generating AI report with Groq...');
-            
-            const prompt = `You are an expert news reporter and analyst.
-
-TOPIC: "${topic}"
-
-SEARCH RESULTS:
-${searchData.results.slice(0, 3).map((r, i) => `${i+1}. ${r.title}\n${r.snippet}`).join('\n\n')}
-
-CONTENT FROM TOP SOURCE:
-${pageContent.substring(0, 8000)}
-
-Task: Write a comprehensive, well-structured news report on this topic based ONLY on the provided information. 
-
-Format:
-- A catchy headline
-- Brief intro (2-3 sentences)
-- Key points (3-5 bullet points)
-- Conclusion
-
-Write in a professional news article style.`;
-
-            const completion = await groq.chat.completions.create({
-                messages: [
-                    { role: 'system', content: 'You are a professional news reporter.' },
-                    { role: 'user', content: prompt }
-                ],
-                model: 'llama-3.3-70b-versatile',
-                max_tokens: 1000,
-                temperature: 0.7
-            });
-            
-            summary = completion.choices[0]?.message?.content;
-        }
-        
-        // Fallback if no Groq
-        if (!summary) {
-            summary = `📰 **Report on: ${topic}**\n\n`;
-            summary += `**Top Sources:**\n`;
-            searchData.results.slice(0, 3).forEach((r, i) => {
-                summary += `${i+1}. [${r.title}](${r.link})\n`;
-            });
-            summary += `\n\n**Summary:**\n${pageContent.substring(0, 2000)}...`;
-        }
-        
-        console.log('✅ Research report generated');
+        console.log('✅ Research report generated via aiService');
         
         res.json({
             success: true,
@@ -117,7 +74,8 @@ Write in a professional news article style.`;
         console.error('Research Error:', error);
         res.status(500).json({
             success: false,
-            message: 'Research failed: ' + error.message
+            message: 'Research failed: ' + error.message,
+            code: error.message.includes('CONFIG_ERROR') ? 'CONFIG_ERROR' : 'SERVER_ERROR'
         });
     }
 });

@@ -3,15 +3,15 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Ensure Firebase is initialized
+require('../config/firebase');
+
 const app = express();
 
 // Error handling wrapper for initialization
 let appError = null;
 
 try {
-  // Import database connection (Sequelize version)
-  const { sequelize, connectDB } = require('../config/database');
-
   // Middleware
   app.use(cors({
     origin: '*',
@@ -22,38 +22,6 @@ try {
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // Connect/Sync to Database on first request (serverless optimization)
-  let dbConnected = false;
-  const ensureDB = async () => {
-    if (!dbConnected) {
-      await connectDB();
-      // In serverless, we usually don't want to sync { alter: true } on every request
-      // but ensure connection is established
-      dbConnected = true;
-    }
-  };
-
-  // Database middleware - ensures connection for all routes
-  app.use(async (req, res, next) => {
-    try {
-      await ensureDB();
-      next();
-    } catch (error) {
-      console.error('Database connection error:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'Database connection failed',
-        error: error.message
-      });
-    }
-  });
-
-  // Import models (Sequelize registration)
-  require('../models/User');
-  require('../models/Summary');
-  require('../models/Debate');
-  require('../models/Poll');
 
   // AI Service for comparison tool
   const aiService = require('../services/aiService');
@@ -97,20 +65,16 @@ try {
   // Health Check / Status
   app.get('/api/status', async (req, res) => {
     try {
-      const hasPg = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
       console.log('Environment Check:', {
         VERCEL: process.env.VERCEL,
-        HAS_PG: hasPg,
         NODE_ENV: process.env.NODE_ENV
       });
-
-      await ensureDB();
 
       res.json({
         status: 'success',
         message: 'NewsMind AI API is running!',
-        version: '1.2.1',
-        database: hasPg ? 'Postgres (Cloud)' : 'SQLite (Local/Ephemeral fallback)',
+        version: '1.3.0',
+        database: 'Firebase Firestore',
         env: process.env.VERCEL ? 'Vercel' : 'Local',
         endpoints: {
           summary: '/api/summary',

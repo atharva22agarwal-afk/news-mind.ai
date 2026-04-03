@@ -6,13 +6,20 @@ const searchGoogle = async (query) => {
     try {
         console.log(`🔎 Searching web for: ${query}`);
         
+        // Validate Serper Key
+        const apiKey = process.env.SERPER_API_KEY;
+        if (!apiKey || apiKey.includes('your_') || apiKey.length < 10) {
+            console.warn('[webSearch] ⚠️ SERPER_API_KEY is missing or placeholder.');
+            return null;
+        }
+
         // Get Google Results from Serper.dev
         const response = await axios.post(
             'https://google.serper.dev/search',
-            { q: query, num: 5 },
+            { q: query, num: 10 },
             { 
                 headers: { 
-                    'X-API-KEY': process.env.SERPER_API_KEY, 
+                    'X-API-KEY': apiKey, 
                     'Content-Type': 'application/json' 
                 } 
             }

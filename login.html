@@ -280,22 +280,22 @@
         <a href="index.html" class="back-btn"><i class="ph ph-arrow-left"></i> Back to Home</a>
         <div class="auth-container">
             <div class="tabs">
-                <div class="tab-btn active" onclick="switchTab('login')">Log In</div>
-                <div class="tab-btn" onclick="switchTab('register')">Register</div>
+                <div class="tab-btn active" id="tab-login">Log In</div>
+                <div class="tab-btn" id="tab-register">Register</div>
             </div>
 
             <!-- LOGIN FORM -->
             <form id="login-form" class="form-section active">
                 <div class="form-group">
                     <label>Email Address</label>
-                    <input type="email" name="email" placeholder="you@example.com" required>
+                    <input type="email" name="email" id="login-email" placeholder="you@example.com" required>
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" placeholder="••••••••" required>
+                    <input type="password" name="password" id="login-pwd" placeholder="••••••••" required>
                 </div>
                 <div class="error-message" id="login-error"></div>
-                <button type="submit" class="btn-main">
+                <button type="submit" class="btn-main" id="login-btn">
                     Enter Dashboard <i class="ph-bold ph-arrow-right"></i>
                 </button>
             </form>
@@ -304,24 +304,31 @@
             <form id="register-form" class="form-section">
                 <div class="form-group">
                     <label>Name</label>
-                    <input type="text" name="name" placeholder="John Doe" required>
+                    <input type="text" name="name" id="reg-name" placeholder="John Doe" required>
                 </div>
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" name="email" placeholder="you@example.com" required>
+                    <input type="email" name="email" id="reg-email" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" id="reg-pwd" placeholder="••••••••" required minlength="6">
                 </div>
                 <div class="error-message" id="register-error"></div>
                 <div class="success-message" id="register-success"></div>
-                <button type="submit" class="btn-main" style="background-color: var(--primary-orange);">
+                <button type="submit" class="btn-main" id="reg-btn" style="background-color: var(--primary-orange);">
                     Create Account
                 </button>
             </form>
         </div>
     </div>
 
-    <script>
+    <!-- Use Type Module for Firebase Imports -->
+    <script type="module">
+        import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from './firebase-client.js';
+
         const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-            ? 'http://localhost:3002/api'
+            ? 'http://localhost:5000/api'
             : '/api';
 
         // Check URL params on load to set initial tab
@@ -332,6 +339,12 @@
                 switchTab('register');
             }
         });
+
+        const tabLoginBtn = document.getElementById('tab-login');
+        const tabRegBtn = document.getElementById('tab-register');
+
+        tabLoginBtn.addEventListener('click', () => switchTab('login'));
+        tabRegBtn.addEventListener('click', () => switchTab('register'));
 
         function switchTab(tab) {
             const login = document.getElementById('login-form');
@@ -348,55 +361,69 @@
             if (tab === 'login') {
                 login.classList.add('active');
                 reg.classList.remove('active');
-                tabs[0].classList.add('active');
+                tabLoginBtn.classList.add('active');
             } else {
                 login.classList.remove('active');
                 reg.classList.add('active');
-                tabs[1].classList.add('active');
+                tabRegBtn.classList.add('active');
             }
+        }
+
+        // Helper: Sync with Backend
+        async function syncUserWithBackend(user) {
+            const idToken = await user.getIdToken(true);
+            
+            const response = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    idToken: idToken
+                })
+            });
+
+            const data = await response.json();
+            if (!data.success) throw new Error(data.message || 'Backend sync failed');
+            return data.data;
         }
 
         // Login Form Handler
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const email = e.target.querySelector('input[name="email"]').value;
+            const email = document.getElementById('login-email').value;
+            const pwd = document.getElementById('login-pwd').value;
             const errorDiv = document.getElementById('login-error');
-            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const submitBtn = document.getElementById('login-btn');
 
-            // Disable button
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Logging in...';
             errorDiv.style.display = 'none';
 
             try {
-                const response = await fetch(`${API_BASE}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: email,
-                        name: email.split('@')[0]
-                    })
-                });
+                // 1. Firebase Auth SignIn
+                const userCredential = await signInWithEmailAndPassword(auth, email, pwd);
+                const user = userCredential.user;
 
-                const data = await response.json();
+                // 2. Sync with Backend to get Firestore data/record
+                const dbUser = await syncUserWithBackend(user);
 
-                if (data.success) {
-                    // Save user info to localStorage
-                    localStorage.setItem('userId', data.data.userId);
-                    localStorage.setItem('userName', data.data.name);
-                    localStorage.setItem('userEmail', data.data.email);
+                // 3. Save to LocalStorage
+                localStorage.setItem('userId', dbUser.userId || user.uid);
+                localStorage.setItem('userName', dbUser.name || user.displayName || email.split('@')[0]);
+                localStorage.setItem('userEmail', dbUser.email || user.email);
+                
+                // Store token for future API calls
+                localStorage.setItem('authToken', await user.getIdToken());
 
-                    // Redirect to dashboard
-                    window.location.href = 'dashboard.html';
-                } else {
-                    throw new Error(data.message || 'Login failed');
-                }
+                window.location.href = 'dashboard.html';
             } catch (error) {
-                // Provide more helpful error messages
                 let errorMessage = error.message;
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+                if (error.code === 'auth/invalid-credential') {
+                    errorMessage = 'Invalid email or password.';
+                } else if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'User not found. Try registering.';
                 }
                 errorDiv.textContent = errorMessage;
                 errorDiv.style.display = 'block';
@@ -409,52 +436,47 @@
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const name = e.target.querySelector('input[name="name"]').value;
-            const email = e.target.querySelector('input[name="email"]').value;
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const pwd = document.getElementById('reg-pwd').value;
             const errorDiv = document.getElementById('register-error');
             const successDiv = document.getElementById('register-success');
-            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const submitBtn = document.getElementById('reg-btn');
 
-            // Disable button
             submitBtn.disabled = true;
             submitBtn.innerHTML = 'Creating Account...';
             errorDiv.style.display = 'none';
             successDiv.style.display = 'none';
 
             try {
-                const response = await fetch(`${API_BASE}/auth/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: email,
-                        name: name
-                    })
-                });
+                // 1. Firebase Auth SignUp
+                const userCredential = await createUserWithEmailAndPassword(auth, email, pwd);
+                const user = userCredential.user;
 
-                const data = await response.json();
+                // 2. Update Firebase Profile
+                await updateProfile(user, { displayName: name });
 
-                if (data.success) {
-                    // Save user info to localStorage
-                    localStorage.setItem('userId', data.data.userId);
-                    localStorage.setItem('userName', data.data.name);
-                    localStorage.setItem('userEmail', data.data.email);
+                // 3. Sync with Backend
+                const dbUser = await syncUserWithBackend(user);
 
-                    // Show success message
-                    successDiv.textContent = 'Account created! Redirecting...';
-                    successDiv.style.display = 'block';
+                // 4. Save to LocalStorage
+                localStorage.setItem('userId', dbUser.userId || user.uid);
+                localStorage.setItem('userName', name);
+                localStorage.setItem('userEmail', email);
+                localStorage.setItem('authToken', await user.getIdToken());
 
-                    // Redirect to dashboard after 1 second
-                    setTimeout(() => {
-                        window.location.href = 'dashboard.html';
-                    }, 1000);
-                } else {
-                    throw new Error(data.message || 'Registration failed');
-                }
+                successDiv.textContent = 'Account created! Redirecting...';
+                successDiv.style.display = 'block';
+
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1000);
             } catch (error) {
-                // Provide more helpful error messages
                 let errorMessage = error.message;
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = 'Email already in use. Please log in.';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage = 'Password should be at least 6 characters.';
                 }
                 errorDiv.textContent = errorMessage;
                 errorDiv.style.display = 'block';

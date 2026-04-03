@@ -3,10 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const NodeCache = require('node-cache');
-const Summary = require('../models/Summary');
-const { deepSummarize } = require('../services/aiService');
+const admin = require('firebase-admin');
+const firestore = require('../services/firestoreService');
 const aiService = require('../services/aiService');
-const { searchGoogle, scrapeWebPage } = require('../services/webSearch');
+const { searchGoogle } = require('../services/webSearch');
 const {
   extractFromURL,
   extractFromPDF,
@@ -16,13 +16,18 @@ const {
 } = require('../services/contentExtractor');
 
 // Initialize cache with 1 hour TTL (3600 seconds)
-const cache = new NodeCache({ stdTTL: 3600 });
+const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
+
+// Constants for validation
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_WORD_COUNT = 50000;
+const CACHE_TTL_SECONDS = 3600;
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /pdf|doc|docx|txt/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -78,61 +83,49 @@ router.post('/url', async (req, res) => {
     const extracted = await extractFromURL(url);
 
     // Generate deep analysis - returns structured object
-    const analysis = await deepSummarize(extracted.content, url);
+    const analysis = await aiService.deepSummarize(extracted.content, url);
 
-    // Prepare response data
-    const responseData = {
-      title: analysis.headline,
-      summary: analysis.tldr,
-      keyPoints: analysis.keyFacts || [],
-      wordCount: extracted.content.split(/\s+/).length,
-      readingTime: Math.ceil(extracted.content.split(/\s+/).length / 200),
-      depth,
-      source: 'url',
-      sourceUrl: url,
-      insights: {
-        bias: analysis.biasLabel,
-        biasScore: analysis.biasScore,
-        sentiment: analysis.sentiment,
-        missingContext: analysis.missingContext
-      }
-    };
-
-    // 2. SAVE TO CACHE
-    cache.set(cacheKey, responseData);
-
-    // Save to database
-    const summaryDoc = await Summary.create({
+    // Prepare data for database
+    const summaryData = {
       userId,
-      title: analysis.headline,
-      headline: analysis.headline,
-      tldr: analysis.tldr,
-      originalContent: extracted.content,
-      summary: analysis.tldr, // Dashboard expects 'summary' field
-      keyPoints: analysis.keyFacts || [],
-      sentiment: analysis.sentiment,
+      title: analysis.headline || 'Intelligence Report',
+      headline: analysis.headline || 'Summary Analysis',
+      tldr: analysis.tldr || analysis.summary || 'Summary unavailable.',
+      originalContent: extracted.content.substring(0, MAX_WORD_COUNT * 10), // Limit storage
+      summary: analysis.summary || analysis.tldr || 'Summary unavailable.',
+      keyPoints: analysis.keyFacts || analysis.keyPoints || [],
+      sentiment: analysis.sentiment || 'Objective',
       biasAnalysis: {
-        score: analysis.biasScore,
-        label: analysis.biasLabel,
-        warning: analysis.missingContext,
+        score: analysis.biasScore || 0,
+        label: analysis.biasLabel || 'Neutral',
+        warning: analysis.missingContext || '',
         flags: analysis.credibilityFlags || []
       },
       depth,
       source: 'url',
       sourceUrl: url,
-      wordCount: responseData.wordCount,
-      readingTime: responseData.readingTime
-    });
+      wordCount: extracted.content.split(/\s+/).length,
+      readingTime: Math.ceil(extracted.content.split(/\s+/).length / 200),
+      viewCount: 0,
+      isPublic: false
+    };
 
-    console.log(`✅ Summary created: ${summaryDoc.id}`);
+    // Save to Firestore
+    const summaryDoc = await firestore.create('summaries', summaryData);
+
+    console.log(`✅ Summary created in Firestore: ${summaryDoc.id}`);
+
+    const responseData = {
+      ...summaryData,
+      id: summaryDoc.id
+    };
+
+    // 2. SAVE TO CACHE
+    cache.set(cacheKey, responseData);
 
     res.json({
       success: true,
-      data: {
-        id: summaryDoc.id,
-        ...responseData,
-        createdAt: summaryDoc.createdAt
-      }
+      data: responseData
     });
 
   } catch (error) {
@@ -179,37 +172,34 @@ router.post('/file', upload.single('file'), async (req, res) => {
     }
 
     // Generate summary - returns an object
-    const result = await aiService.summarizeText(extracted.content, depth);
+    const result = await aiService.deepSummarize(extracted.content, req.file.originalname);
 
-    // Save to database (Sequelize syntax)
-    const summaryDoc = await Summary.create({
+    // Prepare Firestore data
+    const summaryData = {
       userId,
-      title: extracted.title,
-      originalContent: extracted.content,
-      summary: result.summary,
-      keyPoints: result.keyPoints,
+      title: result.headline || extracted.title,
+      originalContent: extracted.content.substring(0, MAX_WORD_COUNT * 10),
+      summary: result.tldr || result.summary,
+      keyPoints: result.keyFacts || [],
       depth,
       source: 'file',
       fileName: req.file.originalname,
-      wordCount: result.wordCount,
-      readingTime: result.readingTime
-    });
+      wordCount: extracted.content.split(/\s+/).length,
+      readingTime: Math.ceil(extracted.content.split(/\s+/).length / 200),
+      viewCount: 0,
+      isPublic: false
+    };
 
-    console.log(`✅ Summary created: ${summaryDoc.id}`);
+    // Save to Firestore
+    const summaryDoc = await firestore.create('summaries', summaryData);
+
+    console.log(`✅ Summary created in Firestore: ${summaryDoc.id}`);
 
     res.json({
       success: true,
       data: {
         id: summaryDoc.id,
-        title: extracted.title,
-        summary: result.summary,
-        keyPoints: result.keyPoints,
-        wordCount: result.wordCount,
-        readingTime: result.readingTime,
-        depth,
-        source: 'file',
-        fileName: req.file.originalname,
-        createdAt: summaryDoc.createdAt
+        ...summaryData
       }
     });
 
@@ -224,11 +214,11 @@ router.post('/file', upload.single('file'), async (req, res) => {
 
 /**
  * POST /api/summary/text
- * Summarize raw text content - SMART: If short, auto-searches web!
+ * Summarize raw text content
  */
 router.post('/text', async (req, res) => {
   try {
-    const { text, depth = 'medium', userId = 'guest', title } = req.body;
+    const { text, depth = 'medium', userId = 'guest' } = req.body;
 
     if (!text || text.trim().length === 0) {
       return res.status(400).json({
@@ -247,59 +237,72 @@ router.post('/text', async (req, res) => {
     if (text.length < 50 && !text.includes('http') && !text.includes('www.')) {
       console.log(`🔍 Detected short topic input. Searching web for: ${text}`);
 
+      const { searchGoogle, scrapeWebPage } = require('../services/webSearch');
       const searchData = await searchGoogle(text);
 
       if (searchData && searchData.results) {
-        // Combine search results into text
-        finalText = `Latest news on "${text}":\n\n`;
-        searchData.results.forEach((r, i) => {
-          finalText += `${i + 1}. ${r.title}: ${r.snippet}\n`;
+        // Build rich context: snippets from all results + scraped content from top result
+        finalText = `Comprehensive Intelligence Dossier on "${text}":\n\n`;
+        
+        // Add all search snippets with source attribution
+        finalText += `=== SEARCH INTELLIGENCE (${searchData.results.length} sources) ===\n\n`;
+        searchData.results.slice(0, 7).forEach((r, i) => {
+          finalText += `[Source ${i + 1}: ${r.title}]\n${r.snippet}\n\n`;
         });
+
+        // Try to scrape the top result for deep context
+        try {
+          const scrapedContent = await scrapeWebPage(searchData.results[0].link);
+          if (scrapedContent && scrapedContent.length > 200) {
+            finalText += `\n=== DEEP SOURCE CONTENT (from ${searchData.results[0].title}) ===\n\n`;
+            finalText += scrapedContent.substring(0, 8000);
+            console.log(`✅ Scraped ${scrapedContent.length} chars from top result for AI context`);
+          }
+        } catch (scrapeErr) {
+          console.log(`⚠️ Scraping failed, using snippets only: ${scrapeErr.message}`);
+        }
+
         sourceLink = searchData.results[0]?.link;
         sourceType = 'search';
-        console.log(`✅ Found ${searchData.results.length} search results`);
       }
     }
 
     // Generate Deep Analysis
-    const analysis = await deepSummarize(finalText, sourceLink || '');
+    const analysis = await aiService.deepSummarize(finalText, sourceLink || '');
 
-    // Save to database
-    const summaryDoc = await Summary.create({
+    // Prepare Firestore data
+    const summaryData = {
       userId,
-      title: analysis.headline,
-      headline: analysis.headline,
-      tldr: analysis.tldr,
-      originalContent: finalText,
-      summary: analysis.tldr,
-      keyPoints: analysis.keyFacts || [],
-      sentiment: analysis.sentiment,
+      title: analysis.headline || 'Text Analysis Report',
+      headline: analysis.headline || 'Text Analysis',
+      tldr: analysis.tldr || analysis.summary || 'Text summary unavailable.',
+      originalContent: finalText.substring(0, MAX_WORD_COUNT * 10),
+      summary: analysis.summary || analysis.tldr || 'Text summary unavailable.',
+      keyPoints: analysis.keyFacts || analysis.keyPoints || [],
+      sentiment: analysis.sentiment || 'Objective',
       biasAnalysis: {
-        score: analysis.biasScore,
-        label: analysis.biasLabel,
-        warning: analysis.missingContext,
+        score: analysis.biasScore || 0,
+        label: analysis.biasLabel || 'Neutral',
+        warning: analysis.missingContext || '',
         flags: analysis.credibilityFlags || []
       },
       depth,
       source: sourceType,
       sourceUrl: sourceLink,
       wordCount: finalText.split(/\s+/).length,
-      readingTime: Math.ceil(finalText.split(/\s+/).length / 200)
-    });
+      readingTime: Math.ceil(finalText.split(/\s+/).length / 200),
+      viewCount: 0,
+      isPublic: false
+    };
+
+    // Save to Firestore
+    const summaryDoc = await firestore.create('summaries', summaryData);
 
     res.json({
       success: true,
       data: {
         id: summaryDoc.id,
-        title: analysis.headline,
-        summary: analysis.tldr,
-        keyPoints: analysis.keyFacts,
-        wordCount: summaryDoc.wordCount,
-        readingTime: summaryDoc.readingTime,
-        depth,
-        source: sourceType,
-        sourceUrl: sourceLink,
-        createdAt: summaryDoc.createdAt
+        ...summaryData
       }
     });
 
@@ -312,19 +315,14 @@ router.post('/text', async (req, res) => {
   }
 });
 
-// Route reordered to prevent shadowing by /:id
 /**
  * GET /api/summary/trending
- * Most viewed summaries with bias flags
+ * Most viewed summaries
  */
 router.get('/trending', async (req, res) => {
   try {
-    // Sequelize syntax - findAll instead of find, order instead of sort
-    const summaries = await Summary.findAll({
-      // where: { isPublic: true }, // Add this if you have an isPublic field
-      order: [['viewCount', 'DESC'], ['createdAt', 'DESC']],
-      limit: 20
-    });
+    const result = await firestore.list('summaries', [], 20, 'viewCount', 'desc');
+    const summaries = result.documents;
 
     const formatted = summaries.map(s => ({
       id: s.id,
@@ -346,7 +344,7 @@ router.get('/trending', async (req, res) => {
 
 /**
  * POST /api/summary/deep
- * Deep AI analysis with structured output
+ * Deep AI analysis
  */
 router.post('/deep', async (req, res) => {
   try {
@@ -359,58 +357,52 @@ router.post('/deep', async (req, res) => {
     let content = rawText;
     let sourceUrl = url;
 
-    // Extract content from URL if provided
     if (url) {
       try {
         const extracted = await extractFromURL(url);
         content = extracted.content;
       } catch (e) {
-        return res.status(422).json({ error: 'Could not extract content from this URL. Try pasting the text directly.' });
+        return res.status(422).json({ error: 'Could not extract content from this URL.' });
       }
     }
 
-    // Check if this URL was already summarized recently (24hr cache) - Sequelize syntax
+    // Check recent Firestore records
     if (sourceUrl) {
-      const { Op } = require('sequelize');
-      const recent = await Summary.findOne({
-        where: {
-          sourceUrl,
-          createdAt: {
-            [Op.gte]: new Date(Date.now() - 24 * 60 * 60 * 1000)
-          }
-        }
-      });
-
-      if (recent) {
+      const recent = await firestore.findOne('summaries', 'sourceUrl', sourceUrl);
+      if (recent && (new Date() - new Date(recent.createdAt) < 24 * 60 * 60 * 1000)) {
         return res.json({ success: true, summary: recent, fromCache: true });
       }
     }
 
     // Deep AI analysis
-    const analysis = await deepSummarize(content, sourceUrl);
+    const analysis = await aiService.deepSummarize(content, sourceUrl || '');
 
-    // Save to DB with full structured data (Sequelize syntax)
-    const summary = await Summary.create({
+    // Prepare Data
+    const summaryData = {
       userId,
       sourceUrl,
-      title: analysis.headline,
-      headline: analysis.headline,
-      tldr: analysis.tldr,
-      originalContent: content,
-      summary: analysis.tldr,
-      keyPoints: analysis.keyFacts || [],
-      sentiment: analysis.sentiment,
+      title: analysis.headline || 'Deep Report',
+      headline: analysis.headline || 'Deep Analysis',
+      tldr: analysis.tldr || analysis.summary || 'Content generated successfully.',
+      originalContent: content.substring(0, MAX_WORD_COUNT * 10),
+      summary: analysis.summary || analysis.tldr || 'Content generated successfully.',
+      keyPoints: analysis.keyFacts || analysis.keyPoints || [],
+      sentiment: analysis.sentiment || 'Objective',
       biasAnalysis: {
-        score: analysis.biasScore,
-        warning: analysis.missingContext,
+        score: analysis.biasScore || 0,
+        warning: analysis.missingContext || '',
         flags: analysis.credibilityFlags || []
       },
       wordCount: content.split(/\s+/).length,
       readingTime: Math.ceil(content.split(/\s+/).length / 200),
-      source: url ? 'url' : 'text'
-    });
+      source: url ? 'url' : 'text',
+      viewCount: 0,
+      isPublic: false
+    };
 
-    res.json({ success: true, summary });
+    const summary = await firestore.create('summaries', summaryData);
+
+    res.json({ success: true, summary: { id: summary.id, ...summaryData } });
 
   } catch (err) {
     console.error('Deep summary error:', err);
@@ -420,12 +412,11 @@ router.post('/deep', async (req, res) => {
 
 /**
  * GET /api/summary/:id
- * Get a specific summary by ID
+ * Get summary by ID with atomic view count increment
  */
 router.get('/:id', async (req, res) => {
   try {
-    // Sequelize uses findByPk instead of findById
-    const summary = await Summary.findByPk(req.params.id);
+    const summary = await firestore.getById('summaries', req.params.id);
 
     if (!summary) {
       return res.status(404).json({
@@ -433,6 +424,9 @@ router.get('/:id', async (req, res) => {
         message: 'Summary not found'
       });
     }
+
+    // Increment view count atomically using Firestore's FieldValue.increment
+    firestore.increment('summaries', req.params.id, 'viewCount', 1).catch(console.error);
 
     res.json({
       success: true,
@@ -447,6 +441,5 @@ router.get('/:id', async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;

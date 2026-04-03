@@ -1,55 +1,66 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const firestore = require('../services/firestoreService');
+const { auth } = require('../config/firebase');
 
 /**
  * POST /api/auth/login
- * Simple authentication (creates user if doesn't exist)
+ * Firebase login (verifies token and ensures user exists in Firestore)
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, name } = req.body;
+    const { idToken } = req.body;
 
-    if (!email || !name) {
+    if (!idToken) {
       return res.status(400).json({
         success: false,
-        message: 'Email and name are required'
+        message: 'Firebase ID token is required'
       });
     }
 
-    // Check if user exists (Sequelize syntax)
-    let user = await User.findOne({ where: { email: email.toLowerCase() } });
+    // Verify token
+    const decodedToken = await auth.verifyIdToken(idToken);
+    const { uid, email, name, picture } = decodedToken;
+
+    // Check if user exists in Firestore
+    let user = await firestore.getById('users', uid);
 
     if (!user) {
-      // Create new user
-      const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-
-      user = await User.create({
-        userId: userId,
-        email: email.toLowerCase(),
-        name: name,
+      // Create new user record
+      user = {
+        userId: uid,
+        email: email || '',
+        name: name || 'Anonymous User',
+        picture: picture || '',
+        preferences: {
+          defaultDepth: 'medium',
+          autoGenerateAudio: false,
+          voiceLanguage: 'en-US'
+        },
+        stats: {
+          totalSummaries: 0,
+          totalDebates: 0,
+          totalMessages: 0
+        },
         lastActive: new Date()
-      });
+      };
 
-      console.log('✅ New user created:', email);
+      await firestore.create('users', user, uid);
+      console.log('✅ New Firebase user created:', email);
     } else {
-      // Update last active time for existing users
-      await user.update({ lastActive: new Date() });
-      console.log('✅ Existing user logged in:', email);
+      // Update last active time
+      await firestore.update('users', uid, { lastActive: new Date() });
+      console.log('✅ Existing Firebase user logged in:', email);
     }
 
     res.json({
       success: true,
       message: 'Login successful',
-      data: {
-        userId: user.userId,
-        email: user.email,
-        name: user.name
-      }
+      data: user
     });
 
   } catch (error) {
-    console.error('❌ Auth error:', error);
+    console.error('❌ Firebase Auth error:', error);
     res.status(500).json({
       success: false,
       message: 'Authentication failed',
@@ -60,11 +71,11 @@ router.post('/login', async (req, res) => {
 
 /**
  * GET /api/auth/user/:userId
- * Get user details
+ * Get user details from Firestore
  */
 router.get('/user/:userId', async (req, res) => {
   try {
-    const user = await User.findOne({ where: { userId: req.params.userId } });
+    const user = await firestore.getById('users', req.params.userId);
 
     if (!user) {
       return res.status(404).json({
@@ -75,12 +86,7 @@ router.get('/user/:userId', async (req, res) => {
 
     res.json({
       success: true,
-      data: {
-        userId: user.userId,
-        email: user.email,
-        name: user.name,
-        createdAt: user.createdAt
-      }
+      data: user
     });
 
   } catch (error) {

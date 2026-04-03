@@ -196,7 +196,7 @@
         }
 
         .summary-container {
-            padding: 40px 60px 100px;
+            padding: 40px 60px 120px;
             overflow-y: auto;
             height: 100%;
             max-width: 900px;
@@ -204,16 +204,200 @@
         }
 
         .summary-container p {
-            line-height: 1.7;
-            margin-bottom: 1.2em;
+            line-height: 1.8;
+            margin-bottom: 1em;
             color: #444;
         }
 
         .summary-container h1 {
-            font-size: 2.2rem;
+            font-size: 2rem;
             margin-bottom: 0.5em;
             color: var(--text-dark);
+            line-height: 1.3;
         }
+
+        /* ── Report Structure Styles ── */
+        .report-header {
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 25px;
+            margin-bottom: 30px;
+        }
+        .report-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .report-tag {
+            font-weight: 700;
+            font-size: 0.65rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .report-tag.type { background: var(--accent-yellow); color: #5a4800; }
+        .report-tag.bias { background: #e8f4ff; color: #1a6bb5; }
+        .report-tag.sentiment-positive { background: #e8fbe8; color: #1a7a1a; }
+        .report-tag.sentiment-negative { background: #fbe8e8; color: #a33; }
+        .report-tag.sentiment-neutral { background: #f0f0f0; color: #555; }
+        .report-tag.sentiment-mixed { background: #fff3e0; color: #b36b00; }
+        .report-meta {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .report-tldr {
+            font-size: 1rem;
+            color: #555;
+            line-height: 1.7;
+            margin-top: 15px;
+            padding: 16px 20px;
+            border-left: 3px solid var(--primary-orange);
+            background: #fffdf9;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+        }
+
+        /* ── Section Cards ── */
+        .report-section {
+            background: var(--surface-white);
+            border: 1px solid #f0f0f0;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+            transition: box-shadow 0.2s;
+        }
+        .report-section:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
+        .report-section-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--primary-orange);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ── Summary Body Styles (rendered markdown) ── */
+        .summary-body {
+            line-height: 1.85;
+            color: #3a3a3a;
+            font-size: 0.95rem;
+        }
+        .summary-body p {
+            margin-bottom: 1em;
+        }
+        .summary-body ul, .summary-body ol {
+            padding-left: 0;
+            list-style: none;
+            margin: 0;
+        }
+        .summary-body li {
+            position: relative;
+            padding: 10px 0 10px 0;
+            border-bottom: 1px solid #f5f5f5;
+            line-height: 1.7;
+        }
+        .summary-body li:last-child { border-bottom: none; }
+        .summary-body strong {
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+        .summary-body h2, .summary-body h3 {
+            font-family: 'Merriweather', serif;
+            color: var(--text-dark);
+            margin-top: 1.5em;
+            margin-bottom: 0.6em;
+        }
+        .summary-body h2 { font-size: 1.2rem; }
+        .summary-body h3 { font-size: 1rem; }
+        .summary-body blockquote {
+            border-left: 3px solid var(--accent-yellow);
+            padding: 10px 16px;
+            margin: 16px 0;
+            background: #fffef5;
+            border-radius: 0 8px 8px 0;
+            color: #555;
+        }
+
+        /* ── Key Facts List ── */
+        .keyfact-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .keyfact-item:last-child { border-bottom: none; }
+        .keyfact-num {
+            min-width: 28px;
+            height: 28px;
+            background: #fdf2f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--primary-orange);
+            flex-shrink: 0;
+        }
+        .keyfact-text {
+            font-size: 0.9rem;
+            color: #444;
+            line-height: 1.6;
+        }
+
+        /* ── Credibility Flags ── */
+        .cred-flag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            background: #fff5f5;
+            border: 1px solid #ffe0e0;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #b44;
+            margin: 4px 4px 4px 0;
+        }
+
+        /* ── Forensic Note ── */
+        .forensic-note {
+            margin-top: 20px;
+            padding: 18px 22px;
+            background: #FFF8EE;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary-orange);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #5a4a30;
+        }
+        .forensic-note strong {
+            color: var(--primary-orange);
+        }
+
+        /* ── Related Topics ── */
+        .related-tag {
+            display: inline-block;
+            padding: 5px 14px;
+            background: #f5f0ff;
+            border: 1px solid #e8e0f5;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #6b4daa;
+            margin: 4px 4px 4px 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .related-tag:hover { background: #ece4ff; transform: translateY(-1px); }
 
         .input-bar-container {
             position: absolute;
@@ -396,44 +580,218 @@
         function toggleLogoutMenu() { document.getElementById('logout-menu').classList.toggle('active'); }
         function handleLogout() { localStorage.clear(); window.location.href = 'login.html'; }
 
+        // ── Missing function definitions (were called from HTML but never defined) ──
+        function handleFileClick() {
+            document.getElementById('fileInput').click();
+        }
+
+        function handleNewProject() {
+            currentSummaryId = null;
+            document.getElementById('main-input').value = '';
+            document.getElementById('contentText').innerHTML = `
+                <div style="text-align:center; padding:100px 50px; color:#999;">
+                    <i class="ph ph-sparkle" style="font-size:4rem; color:var(--primary-orange); opacity:0.3;"></i>
+                    <h2 style="margin-top:20px; color:#444;">Welcome to NewsMind</h2>
+                    <p>Enter a URL or text below to generate a premium intelligence report.</p>
+                </div>
+            `;
+        }
+
+        // ── Error display function (WAS MISSING — caused silent crash) ──
+        function showError(msg) {
+            console.error('Dashboard Error:', msg);
+            document.getElementById('contentText').innerHTML = `
+                <div style="text-align:center; padding:80px 50px;">
+                    <i class="ph ph-warning-circle" style="font-size:3rem; color:#E76F51;"></i>
+                    <h2 style="margin-top:20px; color:#444;">Analysis Failed</h2>
+                    <p style="color:#888; margin-top:10px; max-width:500px; margin-left:auto; margin-right:auto;">${msg || 'An unexpected error occurred. Please try again.'}</p>
+                    <button onclick="handleNewProject()" style="margin-top:20px; padding:10px 24px; background:var(--primary-orange); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Try Again</button>
+                </div>
+            `;
+        }
+
         async function handleInputSubmit() {
-            const input = document.getElementById('main-input').value.trim();
+            const inputEl = document.getElementById('main-input');
+            const input = inputEl.value.trim();
             if (!input) return;
+
+            // Clear input immediately so user knows submission was received
+            inputEl.value = '';
+
             const isUrl = input.startsWith('http');
             showLoading("Synthesizing Intelligence...");
+
             try {
                 const res = await fetch(isUrl ? API.summarizeURL : API.summarizeText, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ [isUrl ? 'url' : 'text']: input, userId })
                 });
+
                 const data = await res.json();
-                if (data.success) {
-                    displaySummary(data.data);
-                    currentSummaryId = data.data.id;
-                    loadHistory();
+                console.log('API Response:', data);
+
+                if (!res.ok) {
+                    showError(data.message || data.error || `Server returned ${res.status}`);
+                    return;
                 }
-            } catch (e) { showError(e.message); }
-            document.getElementById('main-input').value = '';
+
+                if (data.success) {
+                    try {
+                        displaySummary(data.data);
+                        currentSummaryId = data.data.id;
+                        loadHistory();
+                    } catch (renderErr) {
+                        console.error('Render Error:', renderErr);
+                        showError('Failed to render the analysis: ' + renderErr.message);
+                    }
+                } else {
+                    showError(data.message || 'Analysis returned an unsuccessful response.');
+                }
+            } catch (e) {
+                console.error('Fetch Error:', e);
+                showError(e.message || 'Network error — could not reach the server.');
+            }
         }
 
         function displaySummary(data) {
             const container = document.getElementById('contentText');
-            const bias = data.insights?.bias || data.biasAnalysis?.label || 'Neutral';
-            const sentiment = data.insights?.sentiment || data.sentiment || 'Objective';
 
+            // Safely extract all fields with fallbacks
+            const bias = data.insights?.bias || data.biasAnalysis?.label || data.biasLabel || 'Neutral';
+            const sentiment = data.insights?.sentiment || data.sentiment || 'Objective';
+            const title = data.title || data.headline || 'Intelligence Report';
+            const tldr = data.tldr || '';
+            const missingContext = data.insights?.missingContext || data.missingContext || data.biasAnalysis?.warning || '';
+            const keyFacts = data.keyPoints || data.keyFacts || [];
+            const credFlags = data.biasAnalysis?.flags || data.credibilityFlags || [];
+            const implications = data.implications || [];
+            const relatedTopics = data.relatedTopics || [];
+            const biasScore = data.biasAnalysis?.score || data.biasScore || 0;
+            const wordCount = data.wordCount || 0;
+            const readingTime = data.readingTime || Math.ceil(wordCount / 200) || 0;
+
+            // Get sentiment tag class
+            const sentLower = sentiment.toLowerCase();
+            let sentClass = 'sentiment-neutral';
+            if (sentLower.includes('positive')) sentClass = 'sentiment-positive';
+            else if (sentLower.includes('negative')) sentClass = 'sentiment-negative';
+            else if (sentLower.includes('mix') || sentLower.includes('conflict')) sentClass = 'sentiment-mixed';
+
+            // Parse summary content (handle string or array)
+            let rawSummary = data.summary || data.tldr || data.headline || 'No summary content available.';
+            let summaryContent = Array.isArray(rawSummary) ? rawSummary.join('\n') : String(rawSummary);
+            let parsedSummary;
+            try {
+                parsedSummary = marked.parse(summaryContent);
+            } catch (e) {
+                parsedSummary = '<p>' + String(summaryContent).replace(/\n/g, '<br>') + '</p>';
+            }
+
+            // ── Build Key Facts HTML ──
+            let keyFactsHTML = '';
+            if (keyFacts.length > 0) {
+                keyFactsHTML = `
+                    <div class="report-section">
+                        <div class="report-section-title"><i class="ph ph-key"></i> Key Intelligence Facts</div>
+                        ${keyFacts.map((f, i) => `
+                            <div class="keyfact-item">
+                                <div class="keyfact-num">${i + 1}</div>
+                                <div class="keyfact-text">${f}</div>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            }
+
+            // ── Build Credibility Flags HTML ──
+            let credFlagsHTML = '';
+            if (credFlags.length > 0) {
+                credFlagsHTML = `
+                    <div class="report-section">
+                        <div class="report-section-title"><i class="ph ph-shield-warning"></i> Credibility Flags</div>
+                        <div style="display:flex; flex-wrap:wrap;">
+                            ${credFlags.map(f => `<span class="cred-flag"><i class="ph ph-warning"></i> ${f}</span>`).join('')}
+                        </div>
+                    </div>`;
+            }
+
+            // ── Build Implications HTML ──
+            let implicationsHTML = '';
+            if (implications.length > 0) {
+                implicationsHTML = `
+                    <div class="report-section">
+                        <div class="report-section-title"><i class="ph ph-trend-up"></i> Implications & Impact</div>
+                        ${implications.map((imp, i) => `
+                            <div class="keyfact-item">
+                                <div class="keyfact-num" style="background:#e8fbe8; color:#1a7a1a;">→</div>
+                                <div class="keyfact-text">${imp}</div>
+                            </div>
+                        `).join('')}
+                    </div>`;
+            }
+
+            // ── Build Related Topics HTML ──
+            let relatedHTML = '';
+            if (relatedTopics.length > 0) {
+                relatedHTML = `
+                    <div class="report-section">
+                        <div class="report-section-title"><i class="ph ph-link"></i> Related Topics</div>
+                        <div>${relatedTopics.map(t => `<span class="related-tag" onclick="document.getElementById('main-input').value='${t}';handleInputSubmit();">${t}</span>`).join('')}</div>
+                    </div>`;
+            }
+
+            // ── Build Forensic Note HTML ──
+            let forensicNoteHTML = '';
+            if (missingContext) {
+                forensicNoteHTML = `
+                    <div class="forensic-note">
+                        <strong>⚠️ Forensic Note — Missing Context:</strong><br>
+                        ${missingContext}
+                    </div>`;
+            }
+
+            // ── Bias Score Bar ──
+            let biasBarHTML = '';
+            if (biasScore > 0) {
+                const biasColor = biasScore < 30 ? '#4ade80' : biasScore < 60 ? '#facc15' : '#f87171';
+                biasBarHTML = `
+                    <div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:0.75rem; color:#888; min-width:70px;">Bias Score</span>
+                        <div style="flex:1; height:6px; background:#f0f0f0; border-radius:3px; overflow:hidden;">
+                            <div style="width:${biasScore}%; height:100%; background:${biasColor}; border-radius:3px; transition:width 0.5s ease;"></div>
+                        </div>
+                        <span style="font-size:0.75rem; font-weight:700; color:${biasColor};">${biasScore}/100</span>
+                    </div>`;
+            }
+
+            // ── Assemble the Full Report ──
             container.innerHTML = `
-                <div style="border-bottom:2px solid #f0f0f0; padding-bottom:25px; margin-bottom:30px;">
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <span style="background:var(--accent-yellow); font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform:uppercase;">Tactical Briefing</span>
-                        <span style="background:#f0f0f0; font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform:uppercase;">${bias}</span>
-                        <span style="background:#f0f0f0; font-weight:700; font-size:0.7rem; padding:4px 8px; border-radius:4px; text-transform:uppercase;">${sentiment}</span>
+                <div class="report-header">
+                    <div class="report-tags">
+                        <span class="report-tag type">Tactical Briefing</span>
+                        <span class="report-tag bias">${bias}</span>
+                        <span class="report-tag ${sentClass}">${sentiment}</span>
                     </div>
-                    <h1 style="margin:10px 0;">${data.title}</h1>
-                    <p style="font-size:0.85rem; color:#888;">AI Forensic Analysis • ${new Date().toLocaleDateString()}</p>
+                    <h1>${title}</h1>
+                    ${tldr ? `<div class="report-tldr">${tldr}</div>` : ''}
+                    <div class="report-meta">
+                        <i class="ph ph-brain"></i> AI Forensic Analysis
+                        <span>•</span> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        ${readingTime ? `<span>•</span> <i class="ph ph-clock"></i> ${readingTime} min read` : ''}
+                    </div>
+                    ${biasBarHTML}
                 </div>
-                <div class="summary-body">${marked.parse(data.summary)}</div>
-                ${data.insights?.missingContext ? `<div style="margin-top:30px; padding:20px; background:#FFF4E5; border-radius:12px; border-left:4px solid var(--primary-orange); font-size:0.9rem;"><strong>Forensic Note:</strong> ${data.insights.missingContext}</div>` : ''}
+
+                <div class="report-section">
+                    <div class="report-section-title"><i class="ph ph-magnifying-glass"></i> Analysis</div>
+                    <div class="summary-body">${parsedSummary}</div>
+                </div>
+
+                ${keyFactsHTML}
+                ${credFlagsHTML}
+                ${implicationsHTML}
+                ${forensicNoteHTML}
+                ${relatedHTML}
             `;
         }
 
@@ -441,7 +799,7 @@
             try {
                 const res = await fetch(`${API.getSummaries}?userId=${userId}&limit=10`);
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && data.data && data.data.summaries) {
                     const container = document.getElementById('history-container');
                     container.innerHTML = '';
                     data.data.summaries.forEach(s => {
@@ -449,24 +807,66 @@
                         item.className = 'history-item';
                         item.innerHTML = `
                             <div class="icon-bg"><i class="ph ph-file-text"></i></div>
-                            <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:150px;">${s.title}</div>
+                            <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:150px;">${s.title || 'Untitled'}</div>
                         `;
                         item.onclick = () => loadSpecificSummary(s.id || s._id);
                         container.appendChild(item);
                     });
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.warn('Failed to load history:', e.message);
+            }
         }
 
         async function loadSpecificSummary(id) {
-            const res = await fetch(API.getSummary(id));
-            const data = await res.json();
-            if (data.success) displaySummary(data.data);
+            try {
+                showLoading("Loading report...");
+                const res = await fetch(API.getSummary(id));
+                const data = await res.json();
+                if (data.success) {
+                    displaySummary(data.data);
+                    currentSummaryId = id;
+                } else {
+                    showError('Could not load this report.');
+                }
+            } catch (e) {
+                showError('Failed to load report: ' + e.message);
+            }
         }
 
         function showLoading(msg) {
             document.getElementById('contentText').innerHTML = `<div style="text-align:center; padding:100px;"><i class="ph ph-spinner ph-spin" style="font-size:3rem; color:var(--primary-orange);"></i><p style="margin-top:20px;">${msg}</p></div>`;
         }
+
+        // File upload handler
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showLoading("Processing file...");
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('userId', userId);
+
+            try {
+                const res = await fetch(API.summarizeFile, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    displaySummary(data.data);
+                    currentSummaryId = data.data.id;
+                    loadHistory();
+                } else {
+                    showError(data.message || 'Failed to process file.');
+                }
+            } catch (err) {
+                showError('File upload failed: ' + err.message);
+            }
+            // Reset file input
+            e.target.value = '';
+        });
 
         window.onload = loadHistory;
 
@@ -483,11 +883,30 @@
             inp.value = '';
             feed.scrollTop = feed.scrollHeight;
 
-            // Basic AI reaction
-            setTimeout(() => {
-                feed.innerHTML += `<div class="chat-bubble ai-msg"><strong>AI:</strong> Analyzing your request... Forensic data indicates high relevance to the current briefing.</div>`;
-                feed.scrollTop = feed.scrollHeight;
-            }, 600);
+            // If we have a current summary, use the AI chat endpoint
+            if (currentSummaryId) {
+                try {
+                    const res = await fetch(`${API.baseURL}/chat/ask`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: txt, userId, context: 'dashboard' })
+                    });
+                    const data = await res.json();
+                    if (data.success && data.data?.reply) {
+                        feed.innerHTML += `<div class="chat-bubble ai-msg"><strong>AI:</strong> ${data.data.reply}</div>`;
+                    } else {
+                        feed.innerHTML += `<div class="chat-bubble ai-msg"><strong>AI:</strong> ${data.reply || 'Analyzing your request... Forensic data indicates high relevance to the current briefing.'}</div>`;
+                    }
+                } catch (e) {
+                    feed.innerHTML += `<div class="chat-bubble ai-msg"><strong>AI:</strong> Analyzing your request... Forensic data indicates high relevance to the current briefing.</div>`;
+                }
+            } else {
+                setTimeout(() => {
+                    feed.innerHTML += `<div class="chat-bubble ai-msg"><strong>AI:</strong> Generate a summary first, then I can answer questions about it!</div>`;
+                    feed.scrollTop = feed.scrollHeight;
+                }, 600);
+            }
+            feed.scrollTop = feed.scrollHeight;
         }
     </script>
 </body>

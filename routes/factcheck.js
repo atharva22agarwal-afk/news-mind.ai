@@ -1,8 +1,8 @@
 // routes/factcheck.js - BRAND NEW ROUTE
 const express = require('express');
 const router = express.Router();
-const { factCheck } = require('../services/aiService');
-const Debate = require('../models/Debate');
+const aiService = require('../services/aiService');
+const firestoreService = require('../services/firestoreService');
 
 // Rate limiting storage (simple in-memory for now)
 const rateLimitStore = new Map();
@@ -39,13 +39,13 @@ router.post('/', factCheckLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Keep claim under 500 characters for best results' });
     }
 
-    const result = await factCheck(claim.trim());
+    const result = await aiService.factCheck(claim.trim());
 
     // Optional: if this fact-check is linked to a debate argument, save it
     if (debateId && argumentId) {
       try {
-        // Sequelize syntax - find debate and update embedded argument
-        const debate = await Debate.findByPk(debateId);
+        // Firestore syntax - find debate and update embedded argument
+        const debate = await firestoreService.getDebateRoom(debateId);
         if (debate) {
           const currentArgs = [...(debate.arguments || [])];
           const argIndex = currentArgs.findIndex(a => a.id === argumentId);
@@ -56,9 +56,9 @@ router.post('/', factCheckLimiter, async (req, res) => {
               factCheckVerdict: result.verdict,
               factCheckConfidence: result.confidence,
               factCheckExplanation: result.explanation,
-              factCheckCheckedAt: new Date()
+              factCheckCheckedAt: new Date().toISOString()
             };
-            await debate.update({ arguments: currentArgs });
+            await firestoreService.updateDebateRoom(debateId, { arguments: currentArgs });
           }
         }
       } catch (dbError) {

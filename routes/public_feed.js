@@ -1,21 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const PublicPost = require('../models/PublicPost');
+const firestore = require('../services/firestoreService');
 
-// Get latest public posts
+// Get latest public posts from Firestore
 router.get('/latest', async (req, res) => {
     try {
-        const posts = await PublicPost.findAll({
-            limit: 50,
-            order: [['createdAt', 'DESC']]
-        });
+        const posts = await firestore.list('public_posts', [], 50, 'createdAt', 'desc');
         res.json({ success: true, data: posts });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// Create a new public post
+// Create a new public post in Firestore
 router.post('/post', async (req, res) => {
     try {
         const { content, authorName, authorId, type } = req.body;
@@ -24,15 +21,18 @@ router.post('/post', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing fields' });
         }
 
-        const post = await PublicPost.create({
+        const postData = {
             content,
             authorName,
             authorId,
-            type: type || 'post'
-        });
+            type: type || 'post',
+            createdAt: new Date()
+        };
+
+        const post = await firestore.create('public_posts', postData);
 
         // Broadcast will be handled via Socket.io in server.js
-        res.json({ success: true, data: post });
+        res.json({ success: true, data: { id: post.id, ...postData } });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
