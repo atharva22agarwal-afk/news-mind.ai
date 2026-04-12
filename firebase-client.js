@@ -3,7 +3,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-// Your web app's Firebase configuration
+// NOTE: These keys MUST match the Firebase Project you are using on the backend.
+// If you are using your own Firebase project, replace the config below with your keys
+// from Project Settings > General > Your Apps > Web App.
 const firebaseConfig = {
   apiKey: "AIzaSyCZeqM0VT-vc0Nq-G9X1LNQqqiHkN1psrU",
   authDomain: "news-mind-55135.firebaseapp.com",

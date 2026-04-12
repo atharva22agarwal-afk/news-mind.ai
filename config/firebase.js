@@ -10,9 +10,21 @@ try {
 
         // Priority 1: JSON string from env var (Cloud Functions / production)
         if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-            credential = admin.credential.cert(serviceAccount);
-            console.log('🔥 Firebase Admin: Using env var credentials');
+            try {
+                let serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                
+                // Fix for copy-paste escaping issues with private_key
+                if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
+                    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+                }
+                
+                credential = admin.credential.cert(serviceAccount);
+                console.log('🔥 Firebase Admin: Successfully parsed env var credentials');
+                console.log('🔥 Project ID:', serviceAccount.project_id);
+            } catch (jsonError) {
+                console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', jsonError.message);
+                throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON format');
+            }
         }
         // Priority 2: File path (local development)
         else {
