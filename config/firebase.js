@@ -11,7 +11,29 @@ try {
         // Priority 1: JSON string from env var (Cloud Functions / production)
         if (process.env.FIREBASE_SERVICE_ACCOUNT) {
             try {
-                let serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                let rawValue = process.env.FIREBASE_SERVICE_ACCOUNT;
+                let serviceAccount;
+
+                // Try raw JSON first
+                try {
+                    serviceAccount = JSON.parse(rawValue);
+                } catch (parseError) {
+                    // Try Base64-encoded JSON (avoids Render UI escaping issues)
+                    try {
+                        const decoded = Buffer.from(rawValue, 'base64').toString('utf8');
+                        serviceAccount = JSON.parse(decoded);
+                        console.log('🔥 Firebase Admin: Decoded Base64 credentials');
+                    } catch (b64Error) {
+                        // Last resort: try fixing corrupted newlines in private_key
+                        try {
+                            const fixed = rawValue.replace(/\n/g, '\\n');
+                            serviceAccount = JSON.parse(fixed);
+                            console.log('🔥 Firebase Admin: Fixed newline-corrupted JSON');
+                        } catch (fixError) {
+                            throw parseError; // Re-throw original parse error
+                        }
+                    }
+                }
                 
                 // Fix for copy-paste escaping issues with private_key
                 if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
