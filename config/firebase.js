@@ -16,12 +16,19 @@ try {
         }
         // Priority 2: File path (local development)
         else {
+            const fs = require('fs');
             const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
                 ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
                 : path.join(__dirname, '..', 'firebase-key.json');
-            const serviceAccount = require(serviceAccountPath);
-            credential = admin.credential.cert(serviceAccount);
-            console.log('🔥 Firebase Admin: Using key file');
+            
+            if (fs.existsSync(serviceAccountPath)) {
+                const serviceAccount = require(serviceAccountPath);
+                credential = admin.credential.cert(serviceAccount);
+                console.log('🔥 Firebase Admin: Using key file');
+            } else {
+                console.log('🔥 Firebase Admin: No credentials provided, falling back to ADC');
+                // No credentials set here, will fall back to default in the next step
+            }
         }
 
         admin.initializeApp({ credential });
