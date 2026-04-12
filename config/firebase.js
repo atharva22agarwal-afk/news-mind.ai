@@ -66,7 +66,20 @@ try {
         }
 
         if (credential) {
-            admin.initializeApp({ credential });
+            const initOptions = { credential };
+            
+            // Explicitly pass projectId to prevent environment variable mixups
+            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+                try {
+                    const rawValue = process.env.FIREBASE_SERVICE_ACCOUNT;
+                    let sa;
+                    try { sa = JSON.parse(rawValue); } 
+                    catch(e) { sa = JSON.parse(Buffer.from(rawValue, 'base64').toString('utf8')); }
+                    if (sa && sa.project_id) initOptions.projectId = sa.project_id;
+                } catch(e) {}
+            }
+            
+            admin.initializeApp(initOptions);
             console.log('🔥 Firebase Admin Initialized with credentials');
         } else {
             console.log('⚠️ No credential object formed, attempting default initialization...');
