@@ -43,8 +43,13 @@ try {
             }
         }
 
-        admin.initializeApp({ credential });
-        console.log('🔥 Firebase Admin Initialized');
+        if (credential) {
+            admin.initializeApp({ credential });
+            console.log('🔥 Firebase Admin Initialized with credentials');
+        } else {
+            console.log('⚠️ No credential object formed, attempting default initialization...');
+            throw new Error('No credentials provided'); // Force jump to catch block for ADC fallback
+        }
     }
 
     db = admin.firestore();
