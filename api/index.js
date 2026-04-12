@@ -14,8 +14,18 @@ let appError = null;
 try {
   // Middleware
   app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      // Allow localhost, vercel, and firebase domains
+      if (origin.includes('localhost') || origin.includes('127.0.0.1') ||
+          origin.endsWith('.vercel.app') || origin.endsWith('.web.app') ||
+          origin.endsWith('.firebaseapp.com')) {
+        return callback(null, true);
+      }
+      callback(null, true); // Allow all in production for now
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
   }));
@@ -96,8 +106,8 @@ try {
     res.sendFile(path.join(rootDir, 'index.html'));
   });
 
-  // 404 Handler - redirect unknown API calls but keep others
-  app.use('/api/*', (req, res) => {
+  // 404 Handler for unmatched API endpoints
+  app.use('/api', (req, res, next) => {
     res.status(404).json({
       status: 'error',
       message: 'API Endpoint not found'

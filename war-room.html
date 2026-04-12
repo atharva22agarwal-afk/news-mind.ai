@@ -224,7 +224,7 @@
             border: 1px solid var(--border-glass);
             border-radius: 24px;
             backdrop-filter: blur(10px);
-            padding: 40px;
+            padding: 40px 40px 120px 40px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.03);
             scrollbar-width: thin;
             scrollbar-color: var(--border-glass) transparent;
@@ -410,14 +410,19 @@
         .tweet-actions { display: flex; gap: 20px; font-size: 1.2rem; color: #aaa; }
         .tweet-actions i:hover { color: #E76F51; cursor: pointer; }
 
-        .chat-input-area { padding: 24px; border-top: 1px solid var(--border-glass); background: #fdfcf8; }
-        .chat-tools { display: flex; gap: 12px; margin-bottom: 15px; }
+        .chat-input-area { 
+            padding: 40px 24px; 
+            border-top: 1px solid var(--border-glass); 
+            background: #fdfcf8; 
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.02);
+        }
+        .chat-tools { display: flex; gap: 12px; margin-bottom: 20px; }
 
         .tool-btn {
             background: white;
             border: 1px solid #ddd;
             color: var(--text-muted);
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 700;
@@ -434,14 +439,15 @@
             width: 100%;
             background: white;
             border: 1px solid #ddd;
-            padding: 14px 50px 14px 20px;
-            border-radius: 30px;
+            padding: 18px 60px 18px 25px;
+            border-radius: 35px;
             color: var(--text-dark);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
         }
         .chat-input:focus {
             border-color: var(--primary-orange);
-            box-shadow: 0 0 0 3px rgba(231,111,81,0.1);
+            box-shadow: 0 0 0 4px rgba(231,111,81,0.1);
         }
 
         .send-btn {
@@ -461,6 +467,31 @@
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(231, 111, 81, 0.2);
         }
+
+        /* DEBATE ANALYSIS STYLES */
+        .analysis-panel { display: none; padding: 20px; overflow-y: auto; height: calc(100% - 100px); }
+        .analysis-section { margin-bottom: 25px; border-bottom: 1px solid var(--border-glass); padding-bottom: 20px; }
+        .analysis-section:last-child { border-bottom: none; }
+        .section-title { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary-orange); margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        
+        .arg-strength-bar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; margin-top: 5px; }
+        .arg-strength-fill { height: 100%; transition: width 0.5s ease; }
+        
+        .contradiction-card { background: #fffcf0; border: 1px solid #f9eeb1; border-radius: 8px; padding: 15px; margin-bottom: 12px; border-left: 4px solid #E9C46A; }
+        .contra-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #856404; margin-bottom: 5px; }
+        
+        .sentiment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 15px; }
+        .sent-item { padding: 10px; background: #f9f9f9; border-radius: 8px; }
+        .sent-val { font-weight: 800; font-size: 1.1rem; display: block; }
+        .sent-lbl { font-size: 0.65rem; color: #999; text-transform: uppercase; }
+
+        .momentum-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.8rem; margin-top: 10px; }
+        .momentum-for { background: #e8fbe8; color: #1a7a1a; }
+        .momentum-against { background: #fff5f5; color: #b44; }
+
+        .feed-tabs { display: flex; border-bottom: 1px solid var(--border-glass); }
+        .feed-tab { flex: 1; padding: 15px; text-align: center; font-size: 0.85rem; font-weight: 700; cursor: pointer; color: #999; border-bottom: 2px solid transparent; transition: 0.2s; }
+        .feed-tab.active { color: var(--primary-orange); border-bottom-color: var(--primary-orange); background: rgba(231,111,81,0.03); }
 
         @keyframes slideIn { from { transform: translateY(15px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
@@ -556,35 +587,49 @@
             </div>
         </main>
 
-        <!-- 3. RIGHT SIDEBAR (LIVE FEED) -->
+        <!-- 3. RIGHT SIDEBAR (LIVE FEED & ANALYSIS) -->
         <aside class="live-feed-panel">
-            <div class="feed-header">
-                <div style="font-weight:700; font-size:0.95rem;">Global Intelligence Feed</div>
-                <div class="live-badge">
-                    <div class="live-dot"></div> Live
+            <div class="feed-tabs">
+                <div class="feed-tab active" onclick="switchFeedTab('feed')">Live Feed</div>
+                <div class="feed-tab" onclick="switchFeedTab('analysis')">AI Forensics</div>
+            </div>
+
+            <!-- FEED PANEL -->
+            <div id="feed-panel" style="display: flex; flex-direction: column; height: calc(100% - 50px);">
+                <div class="feed-stream" id="feed-stream">
+                    <!-- Public Feed Injected Here -->
+                </div>
+
+                <!-- CHAT INPUT -->
+                <div class="chat-input-area">
+                    <div class="chat-tools">
+                        <button class="tool-btn" onclick="insertTemplate('debate')"><i class="ph-bold ph-chats"></i>
+                            Debate</button>
+                        <button class="tool-btn" onclick="insertTemplate('factcheck')"><i
+                                class="ph-bold ph-check-circle"></i> Verify</button>
+                        <button class="tool-btn"
+                            style="margin-left:auto; color:var(--primary-orange); border-color:rgba(231,111,81,0.1);"
+                            onclick="pushToMain()"><i class="ph-bold ph-arrow-left"></i> Analyze This</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="text" id="feedInput" class="chat-input" placeholder="Broadcast to feed...">
+                        <button class="send-btn" onclick="postToFeed()"><i
+                                class="ph-fill ph-paper-plane-right"></i></button>
+                    </div>
                 </div>
             </div>
 
-            <div class="feed-stream" id="feed-stream">
-                <!-- Public Feed Injected Here -->
-            </div>
-
-            <!-- CHAT INPUT -->
-            <div class="chat-input-area">
-                <div class="chat-tools">
-                    <button class="tool-btn" onclick="insertTemplate('debate')"><i class="ph-bold ph-chats"></i>
-                        Debate</button>
-                    <button class="tool-btn" onclick="insertTemplate('factcheck')"><i
-                            class="ph-bold ph-check-circle"></i> Verify</button>
-                    <button class="tool-btn"
-                        style="margin-left:auto; color:var(--primary-orange); border-color:rgba(231,111,81,0.1);"
-                        onclick="pushToMain()"><i class="ph-bold ph-arrow-left"></i> Analyze This</button>
+            <!-- ANALYSIS PANEL -->
+            <div id="analysis-panel" class="analysis-panel">
+                <div id="analysis-content">
+                    <div style="text-align:center; padding:60px 20px; color:#999;">
+                        <i class="ph ph-chart-bar" style="font-size:3rem; opacity:0.3; margin-bottom:15px;"></i>
+                        <p>No active debate analysis. Launch a debate room to start forensic synthesis.</p>
+                    </div>
                 </div>
-                <div class="input-wrapper">
-                    <input type="text" id="feedInput" class="chat-input" placeholder="Broadcast to feed...">
-                    <button class="send-btn" onclick="postToFeed()"><i
-                            class="ph-fill ph-paper-plane-right"></i></button>
-                </div>
+                <button id="refresh-analysis-btn" onclick="refreshAnalysis()" style="display:none; width:100%; margin-top:20px; padding:12px; background:var(--primary-orange); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:700;">
+                    <i class="ph-bold ph-arrows-clockwise"></i> Refresh Analysis
+                </button>
             </div>
         </aside>
     </div>
@@ -717,21 +762,33 @@
             document.getElementById('inputSection').style.display = 'none';
             document.getElementById('intel-status').innerText = 'STATUS: RETRIEVED';
 
-            const summaryId = data.id || (data.data && data.data.id);
-            const content = data.summary || data.content || (data.data && data.data.summary);
+            const summaryId = data.id || (data.data && data.data.id) || null;
+            
+            // Extract content string safely
+            let contentStr = '';
+            if (typeof data === 'string') {
+                contentStr = data;
+            } else {
+                const raw = data.summary || data.content || (data.data && (data.data.summary || data.data.content)) || data.comparison || '';
+                contentStr = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+            }
 
             report.innerHTML = `
-                ${marked.parse(content)}
+                ${marked.parse(contentStr || 'No content available.')}
+                ${summaryId ? `
                 <div style="margin-top:30px; display:flex; gap:15px; border-top:1px solid #eee; padding-top:20px;">
                     <button onclick="startDebate('${summaryId}')" class="btn-new" style="background:var(--primary-orange); padding:8px 20px; font-size:0.85rem;">
                         <i class="ph-bold ph-chats"></i> Launch Private Debate Room
                     </button>
                 </div>
+                ` : ''}
             `;
         }
 
         async function startDebate(id) {
             if (!id || id === 'undefined') return alert("Requires an active intelligence report ID.");
+
+            showLoading("Initializing Secure Debate Room...");
 
             try {
                 const res = await fetch(API.createDebate, {
@@ -741,95 +798,150 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert(`Debate Room Created: ${data.data.topic}\nRoom ID: ${data.data.roomId}`);
-                    // In a full implementation, we'd redirect to a debate-specific UI
-                    // For now, we broadcast the invitation to the feed
-                    document.getElementById('feedInput').value = `INVITATION: Join my debate on "${data.data.topic}". Room ID: ${data.data.roomId}`;
+                    // Important: currentDebateId MUST be the Firestore ID for API consistency
+                    currentDebateId = data.data.id; 
+                    
+                    // Update UI state
+                    document.getElementById('intel-status').innerText = 'STATUS: DEBATE ACTIVE';
+                    switchFeedTab('analysis');
+                    refreshAnalysis();
+                    
+                    // Post invitation to the public feed
+                    const invitation = `🚨 DEBATE OPEN: "${data.data.topic}". Join the forensics in the War Room! [ID: ${data.data.roomId}]`;
+                    document.getElementById('feedInput').value = invitation;
+                    postToFeed();
+                    
+                    console.log(`Debate Room Active: ${currentDebateId}`);
                 } else {
                     alert("Failed to create debate: " + data.message);
+                    document.getElementById('intel-status').innerText = 'STATUS: ERROR';
                 }
             } catch (e) {
+                console.error("Debate Start Error:", e);
                 alert("Debate logic error: " + e.message);
             }
         }
 
-        function insertTemplate(type) {
-            const input = document.getElementById('feedInput');
-            const templates = {
-                debate: "DEBATE PROPOSAL: Regarding [Topic], I argue that [Point]. @AI Analyst, please adjudicate.",
-                factcheck: "VERIFICATION REQUEST: Is it true that [Claim]? Please cross-reference sources."
-            };
-            input.value = templates[type] || "";
-            input.focus();
-        }
+        let currentDebateId = null;
 
-        function pushToMain() {
-            const feedInput = document.getElementById('feedInput');
-            const textInput = document.getElementById('textInput');
-            if (!feedInput.value.trim()) return;
-
-            switchMode('summary');
-            textInput.value = feedInput.value;
-            feedInput.value = '';
-            textInput.focus();
-        }
-
-        function runOnInput(text) {
-            switchMode('summary');
-            document.getElementById('textInput').value = text;
-            runSummary();
-        }
-
-        async function runSummary() {
-            const text = document.getElementById('textInput').value.trim();
-            if (!text) return alert("Content required for analysis.");
-
-            showLoading("Extracting Intelligence & Synthesizing...");
-            const isUrl = text.startsWith('http');
-
-            try {
-                const res = await fetch(isUrl ? API.summarizeURL : API.summarizeText, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ [isUrl ? 'url' : 'text']: text, userId })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('intel-status').innerText = 'STATUS: ANALYZED';
-                    displayReport(data.data);
-                    loadHistory();
-                } else {
-                    throw new Error(data.message || "Synthesization failed");
-                }
-            } catch (e) {
-                document.getElementById('report-content').innerHTML = `<p style="color:red">Intelligence failure: ${e.message}</p>`;
-            }
-        }
-
-        // --- ANALYSIS LOGIC ---
         async function runWarRoomAnalysis() {
-            const urlA = document.getElementById('urlA').value.trim();
-            const urlB = document.getElementById('urlB').value.trim();
-            if (!urlA || !urlB) return alert("Alpha and Bravo targets required.");
+            const u1 = document.getElementById('urlA').value;
+            const u2 = document.getElementById('urlB').value;
+            if (!u1 || !u2) return alert("Both targets required.");
 
-            showLoading("Parsing Sources & Detecting Bias...");
+            showLoading("Analyzing Targets...");
+            const btn = document.getElementById('analyze-btn');
+            if(btn) btn.disabled = true;
 
             try {
                 const res = await fetch(API.toolsCompare, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url1: urlA, url2: urlB })
+                    body: JSON.stringify({ url1: u1, url2: u2 })
                 });
                 const data = await res.json();
-
                 if (data.success) {
-                    document.getElementById('intel-status').innerText = 'STATUS: VERIFIED';
-                    document.getElementById('report-content').innerHTML = marked.parse(data.data);
+                    displayReport(data.data);
                 } else {
-                    throw new Error(data.error);
+                    document.getElementById('report-content').innerHTML = "Analysis failed: " + data.message;
+                    document.getElementById('intel-status').innerText = 'STATUS: ERROR';
+                }
+            } catch (e) { alert("Analysis failed: " + e.message); }
+            if(btn) btn.disabled = false;
+        }
+
+        async function runSummary() {
+            const input = document.getElementById('textInput').value.trim();
+            if (!input) return;
+
+            const isUrl = input.startsWith('http');
+            showLoading("Synthesizing Intelligence...");
+            const btn = document.getElementById('summary-btn');
+            if(btn) btn.disabled = true;
+
+            try {
+                const res = await fetch(isUrl ? API.summarizeURL : API.summarizeText, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ [isUrl ? 'url' : 'text']: input, userId })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    displayReport(data.data);
+                    loadHistory();
+                } else {
+                    document.getElementById('report-content').innerHTML = "Probe failed: " + data.message;
+                    document.getElementById('intel-status').innerText = 'STATUS: ERROR';
                 }
             } catch (e) {
-                document.getElementById('report-content').innerHTML = `<p style="color:red">Intelligence failure: ${e.message}</p>`;
+                alert("Probe failed: " + e.message);
+            }
+            if(btn) btn.disabled = false;
+        }
+
+        function insertTemplate(type) {
+            const templates = {
+                debate: "🚨 STRATEGIC DEBATE INITIATED: ",
+                factcheck: "🛡️ FACT CHECK REQUIRED: "
+            };
+            document.getElementById('feedInput').value = templates[type] || '';
+        }
+
+        function pushToMain() {
+            const val = document.getElementById('feedInput').value;
+            if(!val) return;
+            switchMode('summary');
+            document.getElementById('textInput').value = val;
+        }
+
+        function runOnInput(val) {
+            switchMode('summary');
+            document.getElementById('textInput').value = val;
+            runSummary();
+        }
+
+        function switchFeedTab(tab) {
+            const tabs = document.querySelectorAll('.feed-tab');
+            if(tabs.length < 2) return;
+            tabs.forEach(t => t.classList.remove('active'));
+            
+            if(tab === 'feed') {
+                tabs[0].classList.add('active');
+                document.getElementById('feed-panel').style.display = 'flex';
+                document.getElementById('analysis-panel').style.display = 'none';
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('feed-panel').style.display = 'none';
+                document.getElementById('analysis-panel').style.display = 'block';
+            }
+        }
+        
+        async function refreshAnalysis() {
+            if(!currentDebateId) return;
+            const container = document.getElementById('analysis-content');
+            container.innerHTML = `<div style="text-align:center; padding:40px;"><i class="ph ph-spinner ph-spin" style="font-size:2rem; color:var(--primary-orange);"></i></div>`;
+            
+            try {
+                const res = await fetch(`${API.getDebates}?roomId=${currentDebateId}`);
+                const data = await res.json();
+                if(data.success && data.data.length > 0) {
+                    const room = data.data[0];
+                    container.innerHTML = `
+                        <div class="analysis-section">
+                            <div class="section-title">Topic</div>
+                            <div style="font-size:0.9rem; font-weight:600;">${room.topic}</div>
+                        </div>
+                        <div class="analysis-section">
+                            <div class="section-title">Status</div>
+                            <div style="font-size:0.85rem; color:#666;">Debate ID: ${currentDebateId}</div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `<div style="text-align:center; padding:40px; color:#999;">Analysis ready for real-time monitoring.</div>`;
+                }
+            } catch (e) {
+                 container.innerHTML = `<div style="color:red; padding:20px;">Failed to refresh analysis.</div>`;
             }
         }
 

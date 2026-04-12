@@ -14,7 +14,13 @@ const httpServer = http.createServer(app);
 // Socket.io setup for real-time features
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5000', 'http://127.0.0.1:5000'],
+    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:5000', 'http://127.0.0.1:5000',
+      'http://localhost:5500', 'http://127.0.0.1:5500',
+      'http://localhost:5501', 'http://127.0.0.1:5501',
+      'http://localhost:5502', 'http://127.0.0.1:5502',
+      'http://localhost:3000', 'http://127.0.0.1:3000'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true
   }
@@ -79,7 +85,15 @@ app.use(helmet({
 // CORS with specific origins (NOT wildcard in production)
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
   'http://localhost:5000',
-  'http://127.0.0.1:5000'
+  'http://127.0.0.1:5000',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
+  'http://localhost:5501',
+  'http://127.0.0.1:5501',
+  'http://localhost:5502',
+  'http://127.0.0.1:5502',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
 ];
 
 app.use(cors({

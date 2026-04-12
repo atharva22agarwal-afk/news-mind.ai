@@ -52,7 +52,7 @@ class FirestoreService {
                 .get();
             
             if (snapshot.empty) return null;
-            return snapshot.docs[0].data();
+            return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
         } catch (error) {
             console.error(`Error finding doc in ${collection}:`, error);
             throw error;
@@ -179,15 +179,16 @@ class FirestoreService {
             query = query.limit(limit);
             const snapshot = await query.get();
             
+            const lastDoc = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
             const docs = snapshot.docs.map(doc => ({
-                ...doc.data(),
-                _cursor: snapshot.docs[snapshot.docs.length - 1] // Cursor for next page
+                id: doc.id,
+                ...doc.data()
             }));
             
             return {
                 documents: docs,
                 hasMore: docs.length === limit,
-                nextCursor: docs.length > 0 ? docs[docs.length - 1]._cursor : null
+                nextCursor: lastDoc
             };
         } catch (error) {
             console.error(`Error listing docs from ${collection}:`, error);

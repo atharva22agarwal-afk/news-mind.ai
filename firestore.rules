@@ -119,6 +119,30 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
+    // ==================== USERS ====================
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users can create their own profile
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users can update their own profile
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Users cannot delete their profile (admin only)
+      allow delete: if false;
+    }
+    
+    // ==================== COUNTERS ====================
+    match /counters/{counterId} {
+      // Allow read for authenticated users
+      allow read: if isAuthenticated();
+      
+      // Only server/admin can write
+      allow write: if false;
+    }
+    
     // ==================== RATE LIMITING COLLECTION ====================
     match /rateLimits/{userId} {
       // Only server/admin can write

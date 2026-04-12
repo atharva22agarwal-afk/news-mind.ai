@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const firestore = require('../services/firestoreService');
-const { judgeArgument, moderateDebate } = require('../services/aiService');
+const aiService = require('../services/aiService');
 let io = null;
 
 // Set io from server.js
@@ -144,7 +144,7 @@ async function analyzeArgumentAsync(debateId, argument, content, side) {
     const debate = await firestore.getById('debates', debateId);
     if (!debate) return;
 
-    const analysis = await judgeArgument(content, debate.topic, side);
+    const analysis = await aiService.judgeArgument(content, debate.topic, side);
 
     const currentArgs = [...(debate.arguments || [])];
     const argIndex = currentArgs.findIndex(a => a.id === argument.id);
@@ -181,7 +181,7 @@ async function analyzeArgumentAsync(debateId, argument, content, side) {
         content: a.content
       }));
 
-      const moderation = await moderateDebate(debate.topic, messagesForModeration);
+      const moderation = await aiService.moderateDebate(debate.topic, messagesForModeration);
 
       await firestore.update('debates', debateId, {
         aiForStrength: moderation.forStrength || 50,
@@ -419,6 +419,41 @@ router.delete('/:roomId', async (req, res) => {
       success: false,
       message: 'Failed to close debate'
     });
+  }
+});
+/**
+ * GET /api/debate/:id/analysis
+ * Generates a comprehensive AI analysis of the current debate state
+ */
+router.get('/:id/analysis', async (req, res) => {
+  try {
+    const debate = await firestore.getById('debates', req.params.id);
+    if (!debate) {
+      return res.status(404).json({ success: false, message: 'Debate not found' });
+    }
+
+    // Only analyze if there are actually some arguments
+    if (!debate.arguments || debate.arguments.length < 2) {
+      return res.json({
+        success: true,
+        data: {
+          status: 'insufficient_data',
+          message: 'Need more participation to generate a forensic analysis.'
+        }
+      });
+    }
+
+    console.log(`📊 Generating deep analysis for debate: ${req.params.id}`);
+    const analysis = await aiService.generateDebateAnalysis(debate.topic, debate.arguments);
+
+    res.json({
+      success: true,
+      data: analysis
+    });
+
+  } catch (error) {
+    console.error('Debate Analysis Error:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate analysis' });
   }
 });
 

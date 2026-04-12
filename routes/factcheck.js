@@ -45,7 +45,7 @@ router.post('/', factCheckLimiter, async (req, res) => {
     if (debateId && argumentId) {
       try {
         // Firestore syntax - find debate and update embedded argument
-        const debate = await firestoreService.getDebateRoom(debateId);
+        const debate = await firestoreService.getById('debates', debateId);
         if (debate) {
           const currentArgs = [...(debate.arguments || [])];
           const argIndex = currentArgs.findIndex(a => a.id === argumentId);
@@ -58,7 +58,7 @@ router.post('/', factCheckLimiter, async (req, res) => {
               factCheckExplanation: result.explanation,
               factCheckCheckedAt: new Date().toISOString()
             };
-            await firestoreService.updateDebateRoom(debateId, { arguments: currentArgs });
+            await firestoreService.update('debates', debateId, { arguments: currentArgs });
           }
         }
       } catch (dbError) {

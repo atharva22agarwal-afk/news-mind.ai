@@ -111,7 +111,7 @@ class AIService {
       return this._compareFallbackGemini(url1, url2);
     }
 
-    const urlScraper = require('../urlScraper');
+    const urlScraper = require('./urlScraper');
     
     // Primary function using Groq
     const groqCompare = async () => {
@@ -310,6 +310,104 @@ Respond as a sharp, intellectually rigorous moderator. Your response should:
       });
       return completion.choices[0].message.content;
     } catch (e) { return "Let's explore that further."; }
+  }
+
+  // ── DEBATE: Full Analysis Engine (Enhanced) ───────────────────
+  async generateDebateAnalysis(topic, debateArguments) {
+    this._init();
+    if (!this.groq && !this.gemini) {
+      return { error: 'No AI service available' };
+    }
+
+    const forArgs = debateArguments.filter(a => a.side === 'for').map(a => a.content).join('\n---\n');
+    const againstArgs = debateArguments.filter(a => a.side === 'against').map(a => a.content).join('\n---\n');
+
+    const prompt = `
+${PERSONAS.debater}
+
+You are performing a COMPREHENSIVE DEBATE ANALYSIS on the topic: "${topic}"
+
+ARGUMENTS FOR:
+${forArgs || '[No arguments submitted yet]'}
+
+ARGUMENTS AGAINST:
+${againstArgs || '[No arguments submitted yet]'}
+
+Produce a thorough, high-utility analysis. Return ONLY valid JSON with this EXACT structure:
+{
+  "keyArguments": {
+    "for": [
+      { "pillar": "Core thesis of this argument cluster", "evidence": "Specific evidence or claims cited", "strength": 0-100 }
+    ],
+    "against": [
+      { "pillar": "Core thesis of this argument cluster", "evidence": "Specific evidence or claims cited", "strength": 0-100 }
+    ]
+  },
+  "publicSentiment": {
+    "summary": "2-3 sentence synthesis of what 'the people' are saying — what are the dominant opinions, fears, and hopes expressed?",
+    "toneProfile": { "analytical": 0-100, "emotional": 0-100, "combative": 0-100 },
+    "dominantNarrative": "The single overarching story emerging from all arguments"
+  },
+  "contradictionMap": [
+    {
+      "topic": "The specific point of conflict",
+      "forClaim": "What the FOR side asserts",
+      "againstClaim": "What the AGAINST side asserts",
+      "resolution": "Is this resolvable? What data would settle it?"
+    }
+  ],
+  "momentum": {
+    "leading": "for or against",
+    "confidence": 0-100,
+    "turningPoints": ["Key moments or arguments that shifted the balance"]
+  },
+  "moderatorVerdict": "A fair, balanced 3-4 sentence verdict on the current state of the debate. Who has the stronger case and why? What would change the outcome?",
+  "suggestedQuestions": ["2-3 questions that would deepen or improve the debate"],
+  "overallQuality": {
+    "evidenceRichness": 0-100,
+    "intellectualDepth": 0-100,
+    "civilityScore": 0-100
+  }
+}
+
+Be precise, forensic, and intellectually honest. Score strictly — 70+ should require substantial evidence.
+    `.trim();
+
+    const groqAnalysis = async () => {
+      const completion = await this.groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama-3.3-70b-versatile',
+        response_format: { type: 'json_object' },
+        max_tokens: 4096,
+      });
+      return JSON.parse(completion.choices[0].message.content);
+    };
+
+    const geminiAnalysis = async () => {
+      const result = await this.gemini.generateContent(prompt);
+      const text = result.response.text();
+      const jsonStr = text.replace(/```json|```/g, '').trim();
+      return JSON.parse(jsonStr);
+    };
+
+    try {
+      return await aiRequestHandler.execute(groqAnalysis, geminiAnalysis, {
+        provider: 'groq',
+        timeout: 45000,
+        useFallback: true
+      });
+    } catch (error) {
+      console.error('[AIService] Debate Analysis Failed:', error.message);
+      return {
+        error: 'Analysis failed: ' + error.message,
+        keyArguments: { for: [], against: [] },
+        publicSentiment: { summary: 'Analysis unavailable', toneProfile: {}, dominantNarrative: '' },
+        contradictionMap: [],
+        momentum: { leading: 'neutral', confidence: 0, turningPoints: [] },
+        moderatorVerdict: 'Unable to generate verdict at this time.',
+        suggestedQuestions: []
+      };
+    }
   }
 
   // ── SUMMARIZE: Deep Forensic Analysis (Powered by GROQ/Gemini Hybrid) ──
@@ -565,7 +663,7 @@ Return ONLY a JSON object:
   async _compareFallbackGemini(url1, url2) {
     if (!this.gemini) return "No AI service available.";
     
-    const urlScraper = require('../urlScraper');
+    const urlScraper = require('./urlScraper');
     try {
       const [data1, data2] = await Promise.all([
         urlScraper.scrapeURL(url1),

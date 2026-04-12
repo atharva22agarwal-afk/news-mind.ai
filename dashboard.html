@@ -678,9 +678,17 @@
             else if (sentLower.includes('negative')) sentClass = 'sentiment-negative';
             else if (sentLower.includes('mix') || sentLower.includes('conflict')) sentClass = 'sentiment-mixed';
 
-            // Parse summary content (handle string or array)
-            let rawSummary = data.summary || data.tldr || data.headline || 'No summary content available.';
-            let summaryContent = Array.isArray(rawSummary) ? rawSummary.join('\n') : String(rawSummary);
+            // Parse summary content (handle string or array or object)
+            let rawSummary = data.summary || data.content || data.tldr || data.headline || 'No summary content available.';
+            let summaryContent;
+            
+            if (typeof rawSummary === 'object' && rawSummary !== null) {
+                // If it's an object, try to get a string from it or stringify it
+                summaryContent = rawSummary.summary || rawSummary.text || JSON.stringify(rawSummary, null, 2);
+            } else {
+                summaryContent = Array.isArray(rawSummary) ? rawSummary.join('\n') : String(rawSummary);
+            }
+
             let parsedSummary;
             try {
                 parsedSummary = marked.parse(summaryContent);

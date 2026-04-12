@@ -159,4 +159,43 @@ INSTRUCTIONS:
     }
 });
 
+// Alias for dashboard compatibility
+router.post('/ask', async (req, res) => {
+    try {
+        const { message, userId = 'guest', context = '' } = req.body;
+        
+        if (!message) {
+            return res.status(400).json({ success: false, message: 'Message is required' });
+        }
+
+        let response = null;
+
+        if (groq) {
+            const completion = await groq.chat.completions.create({
+                messages: [
+                    { role: 'system', content: NEXUS_PERSONA },
+                    { role: 'user', content: message }
+                ],
+                model: 'llama-3.3-70b-versatile',
+                max_tokens: 1024,
+                temperature: 0.4
+            });
+            response = completion.choices[0]?.message?.content;
+        }
+
+        if (!response) {
+            response = "I'm processing your request. Please try again in a moment.";
+        }
+
+        res.json({
+            success: true,
+            data: { reply: response }
+        });
+
+    } catch (error) {
+        console.error('Chat /ask Error:', error);
+        res.status(500).json({ success: false, message: 'Chat failed: ' + error.message });
+    }
+});
+
 module.exports = router;

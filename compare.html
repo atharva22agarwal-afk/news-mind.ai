@@ -318,7 +318,9 @@
                 const data = await res.json();
                 if (data.success) {
                     document.getElementById('results').style.display = 'block';
-                    document.getElementById('report').innerHTML = marked.parse(data.data);
+                    const reportData = data.data;
+                    const contentToRender = typeof reportData === 'string' ? reportData : (reportData.comparison || JSON.stringify(reportData, null, 2));
+                    document.getElementById('report').innerHTML = marked.parse(contentToRender);
                     window.scrollTo({ top: document.getElementById('results').offsetTop - 100, behavior: 'smooth' });
                 }
             } catch (e) { alert("Analysis failed: " + e.message); }
