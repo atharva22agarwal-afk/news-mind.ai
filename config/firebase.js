@@ -8,46 +8,46 @@ try {
     if (!admin.apps.length) {
         let credential;
 
-        // Priority 1: JSON string from env var (Cloud Functions / production)
-        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-            try {
-                let rawValue = process.env.FIREBASE_SERVICE_ACCOUNT;
-                let serviceAccount;
-
-                // Try raw JSON first
+        if (credential === undefined) {
+            // Priority 1: JSON string from env var (Cloud Functions / production)
+            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
                 try {
-                    serviceAccount = JSON.parse(rawValue);
-                } catch (parseError) {
-                    // Try Base64-encoded JSON (avoids Render UI escaping issues)
+                    let rawValue = process.env.FIREBASE_SERVICE_ACCOUNT;
+                    let serviceAccount;
+
+                    // Try raw JSON first
                     try {
-                        const decoded = Buffer.from(rawValue, 'base64').toString('utf8');
-                        serviceAccount = JSON.parse(decoded);
-                        console.log('🔥 Firebase Admin: Decoded Base64 credentials');
-                    } catch (b64Error) {
-                        // Last resort: try fixing corrupted newlines in private_key
+                        serviceAccount = JSON.parse(rawValue);
+                    } catch (parseError) {
                         try {
+                            const decoded = Buffer.from(rawValue, 'base64').toString('utf8');
+                            serviceAccount = JSON.parse(decoded);
+                            console.log('🔥 Firebase Admin: Decoded Base64 credentials');
+                        } catch (b64Error) {
                             const fixed = rawValue.replace(/\n/g, '\\n');
                             serviceAccount = JSON.parse(fixed);
-                            console.log('🔥 Firebase Admin: Fixed newline-corrupted JSON');
-                        } catch (fixError) {
-                            throw parseError; // Re-throw original parse error
                         }
                     }
+                    
+                    // Normalize newlines in private key
+                    if (serviceAccount.private_key) {
+                        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n').replace(/\r\n/g, '\n');
+                    }
+                    
+                    // Write to disk to avoid any memory space encoding issues
+                    const fs = require('fs');
+                    const path = require('path');
+                    const tempKeyPath = path.join(process.cwd(), '.temp-firebase-key.json');
+                    fs.writeFileSync(tempKeyPath, JSON.stringify(serviceAccount));
+                    
+                    credential = admin.credential.cert(tempKeyPath);
+                    console.log('🔥 Firebase Admin: Successfully loaded credentials from generated file');
+                    console.log('🔥 Project ID:', serviceAccount.project_id);
+                } catch (jsonError) {
+                    console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', jsonError.message);
+                    throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON format');
                 }
-                
-                // Fix for copy-paste escaping issues with private_key
-                if (serviceAccount.private_key && typeof serviceAccount.private_key === 'string') {
-                    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-                }
-                
-                credential = admin.credential.cert(serviceAccount);
-                console.log('🔥 Firebase Admin: Successfully parsed env var credentials');
-                console.log('🔥 Project ID:', serviceAccount.project_id);
-            } catch (jsonError) {
-                console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', jsonError.message);
-                throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON format');
             }
-        }
         // Priority 2: File path (local development)
         else {
             const fs = require('fs');
