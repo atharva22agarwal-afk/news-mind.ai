@@ -8,12 +8,18 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        # Firebase is used as the database. Ensure FIREBASE_SERVICE_ACCOUNT_PATH or raw JSON is set in Render env.
+      - key: PORT
+        value: 10000
+      - key: FIREBASE_SERVICE_ACCOUNT
+        # PASTE FULL JSON STRING HERE IN RENDER DASHBOARD
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
       - key: SERPER_API_KEY
         sync: false
+      - key: ALLOWED_ORIGINS
+        value: "https://news-mind-55135.web.app,https://news-mind-ai.onrender.com"
 
 # Databases are now managed in Firebase console
