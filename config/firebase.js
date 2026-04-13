@@ -40,8 +40,11 @@ try {
                     const tempKeyPath = path.join(process.cwd(), '.temp-firebase-key.json');
                     fs.writeFileSync(tempKeyPath, JSON.stringify(serviceAccount));
                     
-                    credential = admin.credential.cert(tempKeyPath);
-                    console.log('🔥 Firebase Admin: Successfully loaded credentials from generated file');
+                    // NEW: Set ADC environment variable dynamically
+                    process.env.GOOGLE_APPLICATION_CREDENTIALS = tempKeyPath;
+                    credential = 'use-adc'; // flag to indicate we succeeded setting up
+                    
+                    console.log('🔥 Firebase Admin: Set GOOGLE_APPLICATION_CREDENTIALS dynamically from Base64');
                     console.log('🔥 Project ID:', serviceAccount.project_id);
                 } catch (jsonError) {
                     console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', jsonError.message);
@@ -67,7 +70,10 @@ try {
         }
 
         if (credential) {
-            const initOptions = { credential };
+            let initOptions = {};
+            if (credential !== 'use-adc') {
+                initOptions.credential = credential;
+            }
             
             // Explicitly pass projectId to prevent environment variable mixups
             if (process.env.FIREBASE_SERVICE_ACCOUNT) {
