@@ -237,6 +237,25 @@ app.get('/api/debug-firebase', async (req, res) => {
     }
 });
 
+// Auth Diagnostic Endpoint
+app.get('/api/diag-auth', async (req, res) => {
+    try {
+        const { exec } = require('child_process');
+        const path = require('path');
+        const scriptPath = path.join(process.cwd(), 'scripts', 'diagnose-auth.js');
+        
+        exec(`node ${scriptPath}`, (error, stdout, stderr) => {
+            res.json({
+                stdout: stdout,
+                stderr: stderr,
+                error: error ? error.message : null
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Polls routes
 app.use('/api/polls', require('./routes/polls'));
 
