@@ -64,6 +64,7 @@ try {
                 // No credentials set here, will fall back to default in the next step
             }
         }
+        }
 
         if (credential) {
             const initOptions = { credential };
