@@ -1,121 +1,87 @@
 const admin = require('firebase-admin');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 let db, auth;
 
+/**
+ * Robustly sanitizes a private key for Google Cloud authentication
+ */
+function sanitizeKey(key) {
+    if (!key) return key;
+    return key
+        .replace(/\\n/g, '\n')      // Convert literal \n to actual newlines
+        .replace(/\r/g, '')         // Remove carriage returns (Windows artifact)
+        .trim();                    // Remove accidental leading/trailing spaces
+}
+
 try {
     if (!admin.apps.length) {
         let credential;
+        let serviceAccountData;
 
-        if (credential === undefined) {
-            // Priority 1: JSON string from env var (Cloud Functions / production)
-            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-                try {
-                    let rawValue = process.env.FIREBASE_SERVICE_ACCOUNT;
-                    let serviceAccount;
+        // Priority 1: FIREBASE_SERVICE_ACCOUNT (JSON or Base64)
+        if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+            try {
+                const rawValue = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
+                let jsonString = rawValue;
 
-                    // Try raw JSON first
-                    try {
-                        serviceAccount = JSON.parse(rawValue);
-                    } catch (parseError) {
-                        try {
-                            const decoded = Buffer.from(rawValue, 'base64').toString('utf8');
-                            serviceAccount = JSON.parse(decoded);
-                            console.log('🔥 Firebase Admin: Decoded Base64 credentials');
-                        } catch (b64Error) {
-                            const fixed = rawValue.replace(/\n/g, '\\n');
-                            serviceAccount = JSON.parse(fixed);
-                        }
-                    }
-                    
-                    serviceAccount.private_key = sanitizeKey(serviceAccount.private_key);
-                    
-                    // Write to disk to avoid any memory space encoding issues
-                    const fs = require('fs');
-                    const path = require('path');
-                    const tempKeyPath = path.join(process.cwd(), '.temp-firebase-key.json');
-                    fs.writeFileSync(tempKeyPath, JSON.stringify(serviceAccount));
-                    
-                    // Set ADC environment variable dynamically as the ultimate fallback
-                    process.env.GOOGLE_APPLICATION_CREDENTIALS = tempKeyPath;
-                    
-                    // But also use it directly for immediate cert creation
-                    credential = admin.credential.cert(serviceAccount);
-                    
-                    console.log('🔥 Firebase Admin: Successfully sanitized and loaded credentials');
-                    console.log('🔥 Project ID:', serviceAccount.project_id);
-                } catch (jsonError) {
-                    console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', jsonError.message);
-                    throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT JSON format');
+                if (!rawValue.startsWith('{')) {
+                    // Try Base64 decoding
+                    jsonString = Buffer.from(rawValue, 'base64').toString('utf8');
+                    console.log('🔥 Firebase Admin: Decoded Base64 credentials');
                 }
+
+                serviceAccountData = JSON.parse(jsonString);
+                serviceAccountData.private_key = sanitizeKey(serviceAccountData.private_key);
+                
+                // Write to temp file for ADC fallback compatibility
+                const tempKeyPath = path.join(process.cwd(), '.temp-firebase-key.json');
+                fs.writeFileSync(tempKeyPath, JSON.stringify(serviceAccountData));
+                process.env.GOOGLE_APPLICATION_CREDENTIALS = tempKeyPath;
+                
+                credential = admin.credential.cert(serviceAccountData);
+                console.log('🔥 Firebase Admin: Successfully loaded credentials from Environment');
+            } catch (err) {
+                console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT:', err.message);
             }
-        // Priority 2: File path (local development)
-        else {
-            const fs = require('fs');
-            const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
-                ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
-                : path.join(__dirname, '..', 'firebase-key.json');
-            
-            if (fs.existsSync(serviceAccountPath)) {
-                const serviceAccount = require(serviceAccountPath);
-                credential = admin.credential.cert(serviceAccount);
-                console.log('🔥 Firebase Admin: Using key file');
-            } else {
-                console.log('🔥 Firebase Admin: No credentials provided, falling back to ADC');
-                // No credentials set here, will fall back to default in the next step
-            }
-        }
         }
 
+        // Priority 2: Local Service Account File
+        if (!credential) {
+            const localKeyPath = path.join(process.cwd(), 'firebase-key.json');
+            if (fs.existsSync(localKeyPath)) {
+                serviceAccountData = require(localKeyPath);
+                serviceAccountData.private_key = sanitizeKey(serviceAccountData.private_key);
+                credential = admin.credential.cert(serviceAccountData);
+                console.log('🔥 Firebase Admin: Using local key file');
+            }
+        }
+
+        // Initialize Admin SDK
         if (credential) {
-            let initOptions = {};
-            if (credential !== 'use-adc') {
-                initOptions.credential = credential;
-            }
-            
-            // Explicitly pass projectId to prevent environment variable mixups
-            if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-                try {
-                    const rawValue = process.env.FIREBASE_SERVICE_ACCOUNT;
-                    let sa;
-                    try { sa = JSON.parse(rawValue); } 
-                    catch(e) { sa = JSON.parse(Buffer.from(rawValue, 'base64').toString('utf8')); }
-                    if (sa && sa.project_id) initOptions.projectId = sa.project_id;
-                } catch(e) {}
-            }
-            
-            admin.initializeApp(initOptions);
-            console.log('🔥 Firebase Admin Initialized with credentials');
+            admin.initializeApp({
+                credential,
+                projectId: serviceAccountData.project_id
+            });
+            console.log('🔥 Firebase Admin: Initialized for project', serviceAccountData.project_id);
         } else {
-            console.log('⚠️ No credential object formed, attempting default initialization...');
-            throw new Error('No credentials provided'); // Force jump to catch block for ADC fallback
+            console.log('🔥 Firebase Admin: No explicit credentials, attempting ADC...');
+            admin.initializeApp();
         }
     }
 
+    // Initialize Firestore & Auth
     db = admin.firestore();
-    // FORCE REST instead of gRPC to bypass Render HTTP/2 outbound proxy header drops
     try {
         db.settings({ preferRest: true });
-        console.log('🔥 Firestore Configured to use REST (preferRest: true)');
-    } catch(e) {
-        console.log('⚠️ Could not set preferRest (might be unsupported in this version of firebase-admin)');
-    }
+        console.log('🔥 Firestore: Configured to use REST protocol');
+    } catch (e) {}
+    
     auth = admin.auth();
 } catch (error) {
-    console.error('❌ Firebase Initialization Error:', error.message);
-    // Attempt Application Default Credentials as last resort
-    try {
-        if (!admin.apps.length) {
-            admin.initializeApp();
-            console.log('🔥 Firebase Admin: Using Application Default Credentials');
-        }
-        db = admin.firestore();
-        try { db.settings({ preferRest: true }); } catch(e) {}
-        auth = admin.auth();
-    } catch (fallbackError) {
-        console.error('❌ Firebase ADC Fallback also failed:', fallbackError.message);
-    }
+    console.error('❌ Firebase Critical Initialization Error:', error.message);
 }
 
 module.exports = { admin, db, auth };
