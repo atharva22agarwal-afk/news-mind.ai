@@ -27,8 +27,20 @@ async function diagnose() {
         return;
     }
 
+    const sanitizeKey = (key) => {
+        if (!key) return key;
+        return key
+            .replace(/\\n/g, '\n')      // Convert literal \n to actual newlines
+            .replace(/\r/g, '')         // Remove carriage returns (Windows artifact)
+            .trim();                    // Remove accidental leading/trailing spaces
+    };
+
     console.log('Project ID:', serviceAccount.project_id);
     console.log('Client Email:', serviceAccount.client_email);
+    
+    // SANITIZE
+    serviceAccount.private_key = sanitizeKey(serviceAccount.private_key);
+
     console.log('Private Key Start:', serviceAccount.private_key?.substring(0, 30));
     console.log('Private Key End:', serviceAccount.private_key?.substring(serviceAccount.private_key.length - 30));
 

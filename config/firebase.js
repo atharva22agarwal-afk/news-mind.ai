@@ -29,10 +29,7 @@ try {
                         }
                     }
                     
-                    // Normalize newlines in private key
-                    if (serviceAccount.private_key) {
-                        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n').replace(/\r\n/g, '\n');
-                    }
+                    serviceAccount.private_key = sanitizeKey(serviceAccount.private_key);
                     
                     // Write to disk to avoid any memory space encoding issues
                     const fs = require('fs');
@@ -40,11 +37,13 @@ try {
                     const tempKeyPath = path.join(process.cwd(), '.temp-firebase-key.json');
                     fs.writeFileSync(tempKeyPath, JSON.stringify(serviceAccount));
                     
-                    // NEW: Set ADC environment variable dynamically
+                    // Set ADC environment variable dynamically as the ultimate fallback
                     process.env.GOOGLE_APPLICATION_CREDENTIALS = tempKeyPath;
-                    credential = 'use-adc'; // flag to indicate we succeeded setting up
                     
-                    console.log('🔥 Firebase Admin: Set GOOGLE_APPLICATION_CREDENTIALS dynamically from Base64');
+                    // But also use it directly for immediate cert creation
+                    credential = admin.credential.cert(serviceAccount);
+                    
+                    console.log('🔥 Firebase Admin: Successfully sanitized and loaded credentials');
                     console.log('🔥 Project ID:', serviceAccount.project_id);
                 } catch (jsonError) {
                     console.error('❌ Error parsing FIREBASE_SERVICE_ACCOUNT env var:', jsonError.message);
