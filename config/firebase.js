@@ -89,6 +89,13 @@ try {
     }
 
     db = admin.firestore();
+    // FORCE REST instead of gRPC to bypass Render HTTP/2 outbound proxy header drops
+    try {
+        db.settings({ preferRest: true });
+        console.log('🔥 Firestore Configured to use REST (preferRest: true)');
+    } catch(e) {
+        console.log('⚠️ Could not set preferRest (might be unsupported in this version of firebase-admin)');
+    }
     auth = admin.auth();
 } catch (error) {
     console.error('❌ Firebase Initialization Error:', error.message);
@@ -99,6 +106,7 @@ try {
             console.log('🔥 Firebase Admin: Using Application Default Credentials');
         }
         db = admin.firestore();
+        try { db.settings({ preferRest: true }); } catch(e) {}
         auth = admin.auth();
     } catch (fallbackError) {
         console.error('❌ Firebase ADC Fallback also failed:', fallbackError.message);
